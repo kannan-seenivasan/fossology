@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- Copyright (C) 2018 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2018 Siemens AG
  Author: Gaurav Mishra <mishra.gaurav@siemens.com>
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Controller for auth queries
@@ -23,13 +12,14 @@
 
 namespace Fossology\UI\Api\Controllers;
 
+use Fossology\Lib\Auth\Auth;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\ResponseInterface;
 use Fossology\UI\Api\Helper\RestHelper;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
 use Fossology\Lib\Exceptions\DuplicateTokenKeyException;
 use Fossology\Lib\Exceptions\DuplicateTokenNameException;
+use Fossology\UI\Api\Helper\ResponseHelper;
 
 /**
  * @class AuthController
@@ -42,9 +32,9 @@ class AuthController extends RestController
    * Respond to OPTIONS requests with an empty 204 response
    *
    * @param ServerRequestInterface $request
-   * @param ResponseInterface $response
+   * @param ResponseHelper $response
    * @param array $args
-   * @return ResponseInterface
+   * @return ResponseHelper
    */
   public function optionsVerification($request, $response, $args)
   {
@@ -55,13 +45,19 @@ class AuthController extends RestController
    * Get the JWT authentication headers for the user
    *
    * @param ServerRequestInterface $request
-   * @param ResponseInterface $response
+   * @param ResponseHelper $response
    * @param array $args
-   * @return ResponseInterface
+   * @return ResponseHelper
    */
   public function createNewJwtToken($request, $response, $args)
   {
-    $tokenRequestBody = $request->getParsedBody();
+    if (Auth::getRestTokenType() == Auth::TOKEN_OAUTH) {
+      $error = new Info(400,
+        "Request to create tokens blocked. Use OAuth clients.",
+        InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    }
+    $tokenRequestBody = $this->getParsedBody($request);
     $paramsRequired = [
       "username",
       "password",

@@ -2,24 +2,14 @@
 
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Dao\FolderDao;
+use Fossology\Lib\Dao\UploadDao;
 use Fossology\Lib\Db\DbManager;
-/***********************************************************
- Copyright (C) 2008-2015 Hewlett-Packard Development Company, L.P.
- Copyright (C) 2015,2018 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2008-2015 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2015, 2018 Siemens AG
 
- This library is free software; you can redistribute it and/or
- modify it under the terms of the GNU Lesser General Public
- License version 2.1 as published by the Free Software Foundation.
-
- This library is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- Lesser General Public License for more details.
-
- You should have received a copy of the GNU Lesser General Public License
- along with this library; if not, write to the Free Software Foundation, Inc.0
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- ***********************************************************/
+ SPDX-License-Identifier: LGPL-2.1-only
+*/
 /**
  * \file
  * \brief Library of functions used by the UI to manage jobs.
@@ -63,7 +53,7 @@ use Fossology\Lib\Db\DbManager;
  * \return upload_pk or null (failure).
  *         On failure, error is written to stdout
  */
-function JobAddUpload($userId, $groupId, $job_name, $filename, $desc, $UploadMode, $folder_pk, $public_perm=Auth::PERM_NONE)
+function JobAddUpload($userId, $groupId, $job_name, $filename, $desc, $UploadMode, $folder_pk, $public_perm=Auth::PERM_NONE, $setGlobal=0)
 {
   global $container;
 
@@ -81,6 +71,14 @@ function JobAddUpload($userId, $groupId, $job_name, $filename, $desc, $UploadMod
 
   $dbManager->getSingleRow("INSERT INTO foldercontents (parent_fk,foldercontents_mode,child_id) VALUES ($1,$2,$3)",
                array($folder_pk,FolderDao::MODE_UPLOAD,$uploadId),'insert.foldercontents');
+
+  // Force insertion
+  if ($setGlobal != 1) {
+    $setGlobal = 0;
+  }
+  /* @var UploadDao $uploadDao */
+  $uploadDao = $GLOBALS['container']->get('dao.upload');
+  $uploadDao->getGlobalDecisionSettingsFromInfo($uploadId, $setGlobal);
 
   /**
    * ** Add user permission to perm_upload ****

@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- Copyright (C) 2020 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2020 Siemens AG
  Author: Gaurav Mishra <mishra.gaurav@siemens.com>
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * @file
@@ -47,11 +36,13 @@ const ENCODE_TABLES = array(
  */
 function calculateNumberOfRecordsToRecode($dbManager)
 {
-  $sql = "SELECT count(*) AS cnt FROM ";
+  $selectSql = "SELECT count(*) AS cnt FROM ";
+  $where = " WHERE (content IS NOT NULL AND content != '')";
   $statement = __METHOD__ . ".getCountsFor";
   $count = 0;
   foreach (ENCODE_TABLES as $table) {
-    $row = $dbManager->getSingleRow($sql . $table, array(), $statement . $table);
+    $sql = $selectSql . $table . $where;
+    $row = $dbManager->getSingleRow($sql, array(), $statement . $table);
     $count += intval($row['cnt']);
   }
   return $count;
@@ -84,9 +75,7 @@ function updateRecodedValues($dbManager, $table, $rows)
   $statement = __METHOD__ . ".updateContentFor.$table";
 
   $dbManager->begin();
-  foreach ($rows as $id => $content) {
-    $dbManager->queryOnce($sql, $statement);
-  }
+  $dbManager->queryOnce($sql, $statement);
   $dbManager->commit();
   return count($rows);
 }
@@ -170,12 +159,13 @@ function startRecodingTables($dbManager, $MODDIR)
 
   $sql = "SET client_encoding = 'SQL_ASCII';";
   $dbManager->queryOnce($sql);
+  $where = " WHERE (content IS NOT NULL AND content != '')";
 
   foreach (ENCODE_TABLES as $table) {
-    $countSql = "SELECT count(*) AS cnt FROM $table;";
+    $countSql = "SELECT count(*) AS cnt FROM $table $where;";
     $countStatement = __METHOD__ . ".getCountFor.$table";
     $contentSql = "SELECT " . $table . "_pk AS id, content " .
-      "FROM $table " .
+      "FROM $table $where " .
       "ORDER BY " . $table . "_pk " .
       "LIMIT $1 OFFSET $2;";
     $contentStatement = __METHOD__ . ".getContentFor.$table";
@@ -191,6 +181,9 @@ function startRecodingTables($dbManager, $MODDIR)
       $i += count($rows);
       $data = array();
       foreach ($rows as $row) {
+        if (empty($row['content'])) {
+          continue;
+        }
         $data[$row['id']] = $row['content'];
       }
       recodeContents($data, $MODDIR);

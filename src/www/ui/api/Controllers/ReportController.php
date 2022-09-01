@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- Copyright (C) 2018 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2018, 2021 Siemens AG
  Author: Gaurav Mishra <mishra.gaurav@siemens.com>
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Controller for report queries
@@ -24,11 +13,14 @@
 namespace Fossology\UI\Api\Controllers;
 
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\ResponseInterface;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Data\Upload\Upload;
+use Fossology\UI\Api\Helper\ResponseHelper;
+use Slim\Psr7\Factory\StreamFactory;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\File\File;
 
 /**
  * @class ReportController
@@ -46,16 +38,17 @@ class ReportController extends RestController
     'spdx2',
     'spdx2tv',
     'readmeoss',
-    'unifiedreport'
+    'unifiedreport',
+    'clixml'
   );
 
   /**
    * Get the required report for the required upload
    *
    * @param ServerRequestInterface $request
-   * @param ResponseInterface $response
+   * @param ResponseHelper $response
    * @param array $args
-   * @return ResponseInterface
+   * @return ResponseHelper
    */
   public function getReport($request, $response, $args)
   {
@@ -93,6 +86,11 @@ class ReportController extends RestController
         case $this->reportsAllowed[4]:
           $unifiedGenerator = $this->restHelper->getPlugin('agent_founifiedreport');
           list ($jobId, $jobQueueId, $error) = $unifiedGenerator->scheduleAgent(
+            $this->restHelper->getGroupId(), $upload);
+          break;
+        case $this->reportsAllowed[5]:
+          $clixmlGenerator = $this->restHelper->getPlugin('ui_clixml');
+          list ($jobId, $jobQueueId) = $clixmlGenerator->scheduleAgent(
             $this->restHelper->getGroupId(), $upload);
           break;
         default:
@@ -183,9 +181,9 @@ class ReportController extends RestController
    * Download the report with the given job id
    *
    * @param ServerRequestInterface $request
-   * @param ResponseInterface $response
+   * @param ResponseHelper $response
    * @param array $args
-   * @return ResponseInterface
+   * @return ResponseHelper
    */
   public function downloadReport($request, $response, $args)
   {
@@ -205,18 +203,24 @@ class ReportController extends RestController
        * @var BinaryFileResponse $responseFile
        */
       $responseFile = $ui_download->getReport($args['id']);
+      /**
+       * @var File $responseContent
+       */
       $responseContent = $responseFile->getFile();
       $newResponse = $response->withHeader('Content-Description',
         'File Transfer')
         ->withHeader('Content-Type',
-        $responseFile->headers->get('Content-Type'))
+        $responseContent->getMimeType())
         ->withHeader('Content-Disposition',
         $responseFile->headers->get('Content-Disposition'))
         ->withHeader('Cache-Control', 'must-revalidate')
         ->withHeader('Pragma', 'private')
-        ->withHeader('Content-Length', filesize($responseContent));
+        ->withHeader('Content-Length', filesize($responseContent->getPathname()));
+      $sf = new StreamFactory();
+      $newResponse = $newResponse->withBody(
+        $sf->createStreamFromFile($responseContent->getPathname())
+      );
 
-      readfile($responseContent);
       return $newResponse;
     } catch (\Exception $e) {
       $error = new Info(500, $e->getMessage(), InfoType::ERROR);

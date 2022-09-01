@@ -1,3 +1,7 @@
+<!-- SPDX-FileCopyrightText: © Fossology contributors
+
+     SPDX-License-Identifier: GPL-2.0-only
+-->
 # FOSSology
 
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/fossology/fossology)
@@ -8,6 +12,7 @@
 [![Slack Channel](https://img.shields.io/badge/slack-fossology-blue.svg?longCache=true&logo=slack)](https://join.slack.com/t/fossology/shared_invite/enQtNzI0OTEzMTk0MjYzLTYyZWQxNDc0N2JiZGU2YmI3YmI1NjE4NDVjOGYxMTVjNGY3Y2MzZmM1OGZmMWI5NTRjMzJlNjExZGU2N2I5NGY)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/fossology/fossology)](https://github.com/fossology/fossology/releases/latest)
 [![YouTube Channel](https://img.shields.io/badge/youtube-FOSSology-red.svg?&logo=youtube&link=https://www.youtube.com/channel/UCZGPJnQZVnEPQWxOuNamLpw)](https://www.youtube.com/channel/UCZGPJnQZVnEPQWxOuNamLpw)
+[![REUSE status](https://api.reuse.software/badge/github.com/fossology/fossology)](https://api.reuse.software/info/github.com/fossology/fossology)
 
 ## About
 
@@ -21,6 +26,8 @@ https://fossology.org/
 ## Requirements
 
 The PHP versions 7.x are supported to work for FOSSology. FOSSology requires Postgresql as the database server and apache httpd 2.6 as the web server. These and more dependencies are installed by `utils/fo-installdeps`.
+
+To install Python dependencies, run `install/fo-install-pythondeps`.
 
 ## Installation
 
@@ -39,14 +46,16 @@ both as a single instance or in combination with an external PostgreSQL database
 use since the standalone image does not take care of data persistency.
 
 A pre-built Docker image is available from [Docker Hub](https://hub.docker.com/r/fossology/fossology/) and can be run using the following command:
-``` sh
+
+```sh
 docker run -p 8081:80 fossology/fossology
 ```
 
-The docker image can then be used using http://IP_OF_DOCKER_HOST:8081/repo user fossy passwd fossy.
+The docker image can then be used using http://IP_OF_DOCKER_HOST:8081/repo user fossy password fossy.
 
 Execution with external database container can be done using Docker Compose, via the following command:
-``` sh
+
+```sh
 docker-compose up
 ```
 
@@ -62,7 +71,7 @@ The Docker image allows the configuration of its database connection over a set 
 
 FOSSology comes with a VagrantFile that can be used to create an isolated environment for FOSSology and its dependencies.
 
-**Pre-requisites:**  Vagrant >= 2.x and Virtualbox >= 5.2.x
+**Pre-requisites:** Vagrant >= 2.x and Virtualbox >= 5.2.x
 
 **Steps:**
 
@@ -142,7 +151,7 @@ All of the FOSSology source code is licensed under the terms of the GNU
 General Public License version 2, with the following exceptions:
 
 libfossdb and libfossrepo libraries are licensed under the terms of
-the GNU Lesser General Public License version 2.1, [LGPL-2.1](https://tldrlegal.com/license/gnu-lesser-general-public-license-v2.1-(lgpl-2.1)).
+the GNU Lesser General Public License version 2.1, [LGPL-2.1](<https://tldrlegal.com/license/gnu-lesser-general-public-license-v2.1-(lgpl-2.1)>).
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public

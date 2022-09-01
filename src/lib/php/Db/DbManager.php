@@ -1,20 +1,9 @@
 <?php
 /*
-Copyright (C) 2014, Siemens AG
-Authors: Steffen Weber, Andreas Würl
+ SPDX-FileCopyrightText: © 2014 Siemens AG
+ Authors: Steffen Weber, Andreas Würl
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 namespace Fossology\Lib\Db;
@@ -132,12 +121,12 @@ abstract class DbManager
     $lastError = "";
     if ($this->dbDriver->isConnected()) {
       $lastError = $this->dbDriver->getLastError();
-      $this->logger->addCritical($lastError);
+      $this->logger->critical($lastError);
       if ($this->transactionDepth>0) {
         $this->dbDriver->rollback();
       }
     } else {
-      $this->logger->addCritical("DB connection lost.");
+      $this->logger->critical("DB connection lost.");
     }
 
     $message = "error executing: $sqlStatement\n\n$lastError";
@@ -203,7 +192,7 @@ abstract class DbManager
     $this->checkResult($res, $sqlStatement);
     $this->freeResult($res);
     $execTime = microtime($get_as_float = true) - $startTime;
-    $this->logger->addDebug("query '$sqlLog' took " . $this->formatMilliseconds($execTime));
+    $this->logger->debug("query '$sqlLog' took " . $this->formatMilliseconds($execTime));
   }
 
   /**
@@ -259,7 +248,7 @@ abstract class DbManager
   {
     foreach ($this->cumulatedTime as $statementName => $seconds) {
       $queryCount = $this->queryCount[$statementName];
-      $this->logger->addDebug("executing '$statementName' took "
+      $this->logger->debug("executing '$statementName' took "
           . $this->formatMilliseconds($seconds)
           . " ($queryCount queries" . ($queryCount > 0 ? ", avg " . $this->formatMilliseconds($seconds / $queryCount) : "") . ")");
     }

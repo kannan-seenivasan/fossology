@@ -1,0 +1,8 @@
+<?php
+/*
+ SPDX-FileCopyrightText: © 2021 Siemens AG
+
+ SPDX-License-Identifier: FSFAP
+*/
+define("AGENT_VERSION", "{$VERSION}");
+define("AGENT_REV", "{$COMMIT_HASH}");

@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- * Copyright (C) 2021 Siemens AG
- * Author: Gaurav Mishra <mishra.gaurav@siemens.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+/*
+ SPDX-FileCopyrightText: © 2021 Siemens AG
+ Author: Gaurav Mishra <mishra.gaurav@siemens.com>
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Tests for LicenseController
@@ -35,11 +24,11 @@ use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
 use Fossology\UI\Api\Models\License;
 use Fossology\UI\Api\Models\Obligation;
-use Slim\Http\Headers;
-use Slim\Http\Body;
-use Slim\Http\Request;
-use Slim\Http\Uri;
-use Slim\Http\Response;
+use Fossology\UI\Api\Helper\ResponseHelper;
+use Slim\Psr7\Request;
+use Slim\Psr7\Factory\StreamFactory;
+use Slim\Psr7\Uri;
+use Slim\Psr7\Headers;
 
 /**
  * @class LicenseControllerTest
@@ -102,10 +91,16 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
   private $userDao;
 
   /**
+   * @var StreamFactory $streamFactory
+   * Stream factory to create body streams.
+   */
+  private $streamFactory;
+
+  /**
    * @brief Setup test objects
    * @see PHPUnit_Framework_TestCase::setUp()
    */
-  protected function setUp()
+  protected function setUp() : void
   {
     global $container;
     $this->userId = 2;
@@ -130,13 +125,14 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
       'dao.license'))->andReturn($this->licenseDao);
     $this->licenseController = new LicenseController($container);
     $this->assertCountBefore = \Hamcrest\MatcherAssert::getCount();
+    $this->streamFactory = new StreamFactory();
   }
 
   /**
    * @brief Remove test objects
    * @see PHPUnit_Framework_TestCase::tearDown()
    */
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->addToAssertionCount(
       \Hamcrest\MatcherAssert::getCount() - $this->assertCountBefore);
@@ -272,7 +268,7 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     $license = $this->getLicense($licenseShortName, true);
 
     $requestHeaders = new Headers();
-    $body = new Body(fopen('php://temp', 'r+'));
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
       "/license/$licenseShortName"), $requestHeaders, [], [], $body);
     $this->licenseDao->shouldReceive('getLicenseByShortName')
@@ -282,10 +278,10 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs([[22], false])->andReturn([]);
     $this->licenseDao->shouldReceive('getLicenseObligations')
       ->withArgs([[22], true])->andReturn([]);
-    $expectedResponse = (new Response())->withJson($license->getArray(), 200);
+    $expectedResponse = (new ResponseHelper())->withJson($license->getArray(), 200);
 
     $actualResponse = $this->licenseController->getLicense($request,
-      new Response(), ['shortname' => $licenseShortName]);
+      new ResponseHelper(), ['shortname' => $licenseShortName]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -304,7 +300,7 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     $license = $this->getLicense($licenseShortName, true, false);
 
     $requestHeaders = new Headers();
-    $body = new Body(fopen('php://temp', 'r+'));
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
       "/license/$licenseShortName"), $requestHeaders, [], [], $body);
     $this->licenseDao->shouldReceive('getLicenseByShortName')
@@ -314,10 +310,10 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs([[22], false])->andReturn([$this->getDaoObligation(123)]);
     $this->licenseDao->shouldReceive('getLicenseObligations')
       ->withArgs([[22], true])->andReturn([$this->getDaoObligation(124)]);
-    $expectedResponse = (new Response())->withJson($license->getArray(), 200);
+    $expectedResponse = (new ResponseHelper())->withJson($license->getArray(), 200);
 
     $actualResponse = $this->licenseController->getLicense($request,
-      new Response(), ['shortname' => $licenseShortName]);
+      new ResponseHelper(), ['shortname' => $licenseShortName]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -334,7 +330,7 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     $licenseShortName = "Bogus";
 
     $requestHeaders = new Headers();
-    $body = new Body(fopen('php://temp', 'r+'));
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
       "/license/$licenseShortName"), $requestHeaders, [], [], $body);
     $this->licenseDao->shouldReceive('getLicenseByShortName')
@@ -343,11 +339,11 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     $info = new Info(404,
       "No license found with short name '{$licenseShortName}'.",
       InfoType::ERROR);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
 
     $actualResponse = $this->licenseController->getLicense($request,
-      new Response(), ['shortname' => $licenseShortName]);
+      new ResponseHelper(), ['shortname' => $licenseShortName]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -370,7 +366,7 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     ];
 
     $requestHeaders = new Headers();
-    $body = new Body(fopen('php://temp', 'r+'));
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
       "/license"), $requestHeaders, [], [], $body);
     $this->dbHelper->shouldReceive('getLicenseCount')
@@ -383,11 +379,11 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     foreach ($licenses as $license) {
       $responseLicense[] = $license->getArray();
     }
-    $expectedResponse = (new Response())->withHeader("X-Total-Pages", 1)
+    $expectedResponse = (new ResponseHelper())->withHeader("X-Total-Pages", 1)
       ->withJson($responseLicense, 200);
 
     $actualResponse = $this->licenseController->getAllLicenses($request,
-      new Response(), []);
+      new ResponseHelper(), []);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -406,20 +402,20 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
   public function testGetAllLicenseBounds()
   {
     $requestHeaders = new Headers();
-    $requestHeaders->set('limit', 5);
-    $requestHeaders->set('page', 2);
-    $body = new Body(fopen('php://temp', 'r+'));
+    $requestHeaders->setHeader('limit', 5);
+    $requestHeaders->setHeader('page', 2);
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
       "/license"), $requestHeaders, [], [], $body);
     $this->dbHelper->shouldReceive('getLicenseCount')
       ->withArgs(["all", $this->groupId])->andReturn(4);
 
     $info = new Info(400, "Can not exceed total pages: 1", InfoType::ERROR);
-    $expectedResponse = (new Response())->withHeader("X-Total-Pages", 1)
+    $expectedResponse = (new ResponseHelper())->withHeader("X-Total-Pages", 1)
       ->withJson($info->getArray(), $info->getCode());
 
     $actualResponse = $this->licenseController->getAllLicenses($request,
-      new Response(), []);
+      new ResponseHelper(), []);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -437,7 +433,7 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
   {
     // All licenses
     $requestHeaders = new Headers();
-    $body = new Body(fopen('php://temp', 'r+'));
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
       "/license", "kind=all"), $requestHeaders, [], [], $body);
     $this->dbHelper->shouldReceive('getLicenseCount')
@@ -446,7 +442,7 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs([1, 100, "all", $this->groupId, false])
       ->andReturn([])->once();
 
-    $this->licenseController->getAllLicenses($request, new Response(), []);
+    $this->licenseController->getAllLicenses($request, new ResponseHelper(), []);
 
     // Main licenses
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
@@ -457,7 +453,7 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs([1, 100, "main", $this->groupId, false])
       ->andReturn([])->once();
 
-    $this->licenseController->getAllLicenses($request, new Response(), []);
+    $this->licenseController->getAllLicenses($request, new ResponseHelper(), []);
 
     // Candidate licenses
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
@@ -468,7 +464,7 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs([1, 100, "candidate", $this->groupId, false])
       ->andReturn([])->once();
 
-    $this->licenseController->getAllLicenses($request, new Response(), []);
+    $this->licenseController->getAllLicenses($request, new ResponseHelper(), []);
 
     // wrong filter
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
@@ -479,7 +475,7 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs([1, 100, "all", $this->groupId, false])
       ->andReturn([])->once();
 
-    $this->licenseController->getAllLicenses($request, new Response(), []);
+    $this->licenseController->getAllLicenses($request, new ResponseHelper(), []);
   }
 
   /**
@@ -495,8 +491,8 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     unset($requestBody['id']);
 
     $requestHeaders = new Headers();
-    $requestHeaders->set('Content-Type', 'application/json');
-    $body = new Body(fopen('php://temp', 'wr+'));
+    $requestHeaders->setHeader('Content-Type', 'application/json');
+    $body = $this->streamFactory->createStream();
     $body->write(json_encode($requestBody));
     $body->seek(0);
     $request = new Request("POST", new Uri("HTTP", "localhost", 80,
@@ -527,11 +523,11 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
       ->andReturn(["cnt" => 0]);
 
     $info = new Info(201, '4', InfoType::INFO);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
 
     $actualResponse = $this->licenseController->createLicense($request,
-      new Response(), []);
+      new ResponseHelper(), []);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -553,8 +549,8 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     unset($requestBody['shortName']);
 
     $requestHeaders = new Headers();
-    $requestHeaders->set('Content-Type', 'application/json');
-    $body = new Body(fopen('php://temp', 'wr+'));
+    $requestHeaders->setHeader('Content-Type', 'application/json');
+    $body = $this->streamFactory->createStream();
     $body->write(json_encode($requestBody));
     $body->seek(0);
     $request = new Request("POST", new Uri("HTTP", "localhost", 80,
@@ -562,11 +558,11 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
 
     $info = new Info(400, "Property 'shortName' is required.",
       InfoType::ERROR);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
 
     $actualResponse = $this->licenseController->createLicense($request,
-      new Response(), []);
+      new ResponseHelper(), []);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -586,8 +582,8 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     unset($requestBody['id']);
 
     $requestHeaders = new Headers();
-    $requestHeaders->set('Content-Type', 'application/json');
-    $body = new Body(fopen('php://temp', 'wr+'));
+    $requestHeaders->setHeader('Content-Type', 'application/json');
+    $body = $this->streamFactory->createStream();
     $body->write(json_encode($requestBody));
     $body->seek(0);
     $request = new Request("POST", new Uri("HTTP", "localhost", 80,
@@ -596,11 +592,11 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
 
     $info = new Info(403, "Need to be admin to create non-candidate license.",
       InfoType::ERROR);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
 
     $actualResponse = $this->licenseController->createLicense($request,
-      new Response(), []);
+      new ResponseHelper(), []);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -621,8 +617,8 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     unset($requestBody['id']);
 
     $requestHeaders = new Headers();
-    $requestHeaders->set('Content-Type', 'application/json');
-    $body = new Body(fopen('php://temp', 'wr+'));
+    $requestHeaders->setHeader('Content-Type', 'application/json');
+    $body = $this->streamFactory->createStream();
     $body->write(json_encode($requestBody));
     $body->seek(0);
     $request = new Request("POST", new Uri("HTTP", "localhost", 80,
@@ -639,11 +635,11 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
 
     $info = new Info(409, "License with shortname '" .
       $license->getShortName() . "' already exists!", InfoType::ERROR);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
 
     $actualResponse = $this->licenseController->createLicense($request,
-      new Response(), []);
+      new ResponseHelper(), []);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -664,8 +660,8 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     ];
 
     $requestHeaders = new Headers();
-    $requestHeaders->set('Content-Type', 'application/json');
-    $body = new Body(fopen('php://temp', 'wr+'));
+    $requestHeaders->setHeader('Content-Type', 'application/json');
+    $body = $this->streamFactory->createStream();
     $body->write(json_encode($requestBody));
     $body->seek(0);
     $request = new Request("PATCH", new Uri("HTTP", "localhost", 80,
@@ -690,11 +686,11 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
 
     $info = new Info(200, "License " . $license->getShortName() . " updated.",
       InfoType::INFO);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
 
     $actualResponse = $this->licenseController->updateLicense($request,
-      new Response(), ["shortname" => $license->getShortName()]);
+      new ResponseHelper(), ["shortname" => $license->getShortName()]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -716,8 +712,8 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     ];
 
     $requestHeaders = new Headers();
-    $requestHeaders->set('Content-Type', 'application/json');
-    $body = new Body(fopen('php://temp', 'wr+'));
+    $requestHeaders->setHeader('Content-Type', 'application/json');
+    $body = $this->streamFactory->createStream();
     $body->write(json_encode($requestBody));
     $body->seek(0);
     $request = new Request("PATCH", new Uri("HTTP", "localhost", 80,
@@ -734,11 +730,11 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
 
     $info = new Info(403, "Operation not permitted for this group.",
       InfoType::ERROR);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
 
     $actualResponse = $this->licenseController->updateLicense($request,
-      new Response(), ["shortname" => $license->getShortName()]);
+      new ResponseHelper(), ["shortname" => $license->getShortName()]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -760,8 +756,8 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
     ];
 
     $requestHeaders = new Headers();
-    $requestHeaders->set('Content-Type', 'application/json');
-    $body = new Body(fopen('php://temp', 'wr+'));
+    $requestHeaders->setHeader('Content-Type', 'application/json');
+    $body = $this->streamFactory->createStream();
     $body->write(json_encode($requestBody));
     $body->seek(0);
     $request = new Request("PATCH", new Uri("HTTP", "localhost", 80,
@@ -779,11 +775,11 @@ class LicenseControllerTest extends \PHPUnit\Framework\TestCase
 
     $info = new Info(403, "Only admin can edit main licenses.",
       InfoType::ERROR);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
 
     $actualResponse = $this->licenseController->updateLicense($request,
-      new Response(), ["shortname" => $license->getShortName()]);
+      new ResponseHelper(), ["shortname" => $license->getShortName()]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),

@@ -1,24 +1,16 @@
 <?php
 /*
- * Copyright (C) 2019, Siemens AG
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+ SPDX-FileCopyrightText: © 2019 Siemens AG
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * @file
  * @brief Functional test cases for ojo agent using scheduler
  */
-require_once "./SchedulerTestRunnerCli.php";
-require_once "./SchedulerTestRunnerScheduler.php";
+require_once "SchedulerTestRunnerCli.php";
+require_once "SchedulerTestRunnerScheduler.php";
 
 use Fossology\Lib\Db\DbManager;
 use Fossology\Lib\Test\TestPgDb;
@@ -78,9 +70,9 @@ class OjoScheduledTest extends \PHPUnit\Framework\TestCase
    * @brief Setup the test cases and initialize the objects
    * @see PHPUnit_Framework_TestCase::setUp()
    */
-  protected function setUp()
+  protected function setUp() : void
   {
-    $this->regressionFile = "regexTest.json";
+    $this->regressionFile = __DIR__ . DIRECTORY_SEPARATOR . "regexTest.json";
 
     $this->testDb = new TestPgDb("ojoSched" . time());
     $this->dbManager = $this->testDb->getDbManager();
@@ -100,7 +92,7 @@ class OjoScheduledTest extends \PHPUnit\Framework\TestCase
    * @brief Destruct the objects initialized during setUp()
    * @see PHPUnit_Framework_TestCase::tearDown()
    */
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->testDb->fullDestruct();
     $this->testDb = null;

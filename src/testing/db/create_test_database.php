@@ -1,21 +1,10 @@
 #!/usr/bin/php
 <?php
 /*
- Copyright (C) 2013-2014 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2013-2014 Hewlett-Packard Development Company, L.P.
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 // If set to TRUE, print additional DEBUG information.  Note that
 // printing this information will prevent the script from working
@@ -496,12 +485,17 @@ $PG_CONN = $test_db_conn;
 */
 if(!is_file(__DIR__ . '/../../vendor/autoload.php'))
 {
-  throw new Exception('you need to run "composer install" before creating adatabase via ApplySchema');
+  throw new Exception('you need to run "composer install" before creating a database via ApplySchema');
 }
 
 require_once(__DIR__ . '/../../lib/php/libschema.php');
 require_once(__DIR__ . '/../../lib/php/common-db.php');
 require_once(__DIR__ . '/../../lib/php/common-cache.php');
+require_once(__DIR__ . '/../../../install/fossinit-common.php');
+
+global $SysConf;
+$SysConf = bootstrap($testing_temp_dir);
+get_pg_conn($testing_temp_dir, $SysConf);
 
 // apply the core schema
 // We need to buffer the output in order to silence the normal

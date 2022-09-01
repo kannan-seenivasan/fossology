@@ -1,24 +1,14 @@
 <?php
 /*
-Copyright (C) 2014-2015, Siemens AG
-Author: Steffen Weber, Johannes Najjar
+ SPDX-FileCopyrightText: © 2014-2015 Siemens AG
+ Author: Steffen Weber, Johannes Najjar
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 namespace Fossology\Lib\Dao;
 
+use Exception;
 use Fossology\Lib\Data\Tree\Item;
 use Fossology\Lib\Data\Tree\ItemTreeBounds;
 use Fossology\Lib\Db\DbManager;
@@ -34,12 +24,13 @@ class UploadDaoTest extends \PHPUnit\Framework\TestCase
   /** @var UploadDao */
   private $uploadDao;
 
-  protected function setUp()
+  protected function setUp() : void
   {
     $this->testDb = new TestPgDb();
     $this->dbManager = &$this->testDb->getDbManager();
 
-    $this->testDb->createPlainTables(array('upload','uploadtree'));
+    $this->testDb->createPlainTables(array('upload', 'uploadtree',
+      'report_info'));
 
     $this->dbManager->prepare($stmt = 'insert.upload',
         "INSERT INTO upload (upload_pk, uploadtree_tablename) VALUES ($1, $2)");
@@ -55,7 +46,7 @@ class UploadDaoTest extends \PHPUnit\Framework\TestCase
     $this->assertCountBefore = \Hamcrest\MatcherAssert::getCount();
   }
 
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->addToAssertionCount(\Hamcrest\MatcherAssert::getCount()-$this->assertCountBefore);
     $this->testDb = null;
@@ -432,20 +423,18 @@ class UploadDaoTest extends \PHPUnit\Framework\TestCase
     assertThat($topId,equalTo(3650));
   }
 
-  /** @expectedException \Exception
-   * @expectedExceptionMessage Missing upload tree parent for upload
-   */
   public function testGetUploadParentFromBrokenTree()
   {
+    $this->expectException(Exception::class);
+    $this->expectExceptionMessage("Missing upload tree parent for upload");
     $this->prepareUploadTree(array(array(4651, 3650, 33, 0, 805323776, 2, 75, 'artifact.dir')));
     $this->uploadDao->getUploadParent(33);
   }
 
-  /** @expectedException \Exception
-   * @expectedExceptionMessage Missing upload tree parent for upload
-   */
   public function testGetUploadParentFromNonExistingTree()
   {
+    $this->expectException(Exception::class);
+    $this->expectExceptionMessage("Missing upload tree parent for upload");
     $this->uploadDao->getUploadParent(34);
   }
 

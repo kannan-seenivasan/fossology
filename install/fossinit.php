@@ -1,22 +1,11 @@
 #!/usr/bin/php
 <?php
-/***********************************************************
- Copyright (C) 2008-2015 Hewlett-Packard Development Company, L.P.
- Copyright (C) 2014-2015,2019 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2008-2015 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2014-2015, 2019 Siemens AG
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /** \brief Print Usage statement.
  *  \return No return, this calls exit.
@@ -136,7 +125,7 @@ require_once("$MODDIR/lib/php/common-sysconfig.php");
 require_once("$MODDIR/lib/php/fossdash-config.php");
 
 /* Initialize global system configuration variables $SysConfig[] */
-ConfigInit($SYSCONFDIR, $SysConf);
+$GLOBALS["PG_CONN"] = get_pg_conn($SYSCONFDIR, $SysConf);
 
 /* Initialize fossdash configuration variables */
 FossdashConfigInit($SYSCONFDIR, $SysConf);
@@ -203,6 +192,11 @@ if ($FailMsg)
   print "ApplySchema failed: $FailMsg\n";
   exit(1);
 }
+
+// Populate sysconfig table
+Populate_sysconfig();
+populate_from_sysconfig($PG_CONN, $SysConf);
+
 $Filename = "$MODDIR/www/ui/init.ui";
 $flagRemoved = !file_exists($Filename);
 if (!$flagRemoved)
@@ -391,7 +385,9 @@ if($isUpdating && (empty($sysconfig['Release']) || $sysconfig['Release'] == "3.1
 $dbManager->begin();
 $dbManager->getSingleRow("DELETE FROM sysconfig WHERE variablename=$1",array('Release'),'drop.sysconfig.release');
 $dbManager->insertTableRow('sysconfig',
-        array('variablename'=>'Release','conf_value'=>$sysconfig['Release'],'ui_label'=>'Release','vartype'=>2,'group_name'=>'Release','description'=>''));
+  array('variablename'=>'Release','conf_value'=>$SysConf["BUILD"]["VERSION"],
+  'ui_label'=>'Release','vartype'=>2,'group_name'=>'Release','description'=>'')
+);
 $dbManager->commit();
 /* email/url/author data migration to other table */
 require_once("$LIBEXECDIR/dbmigrate_copyright-author.php");
@@ -406,6 +402,10 @@ require_once("$LIBEXECDIR/instance_uuid.php");
 // Migration script for 3.7 => 3.8
 require_once("$LIBEXECDIR/dbmigrate_3.7-3.8.php");
 Migrate_37_38($dbManager, $MODDIR);
+
+// Migration script for 4.0 => 4.1
+require_once("$LIBEXECDIR/dbmigrate_4.0-4.1.php");
+Migrate_40_41($dbManager);
 
 // Migration script for copyright_event table
 require_once("$LIBEXECDIR/dbmigrate_copyright-event.php");

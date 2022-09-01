@@ -1,20 +1,9 @@
 <?php
-/***********************************************************
- Copyright (C) 2019 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2019 Siemens AG
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Dao\UploadDao;
@@ -24,6 +13,7 @@ use Fossology\Lib\Dao\ClearingDao;
 use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Data\DecisionTypes;
 use Fossology\Lib\BusinessRules\LicenseMap;
+use Fossology\Lib\Data\Package\ComponentType;
 
 class ui_report_conf extends FO_Plugin
 {
@@ -62,6 +52,8 @@ class ui_report_conf extends FO_Plugin
     "version" => "ri_version",
     "relDate" => "ri_release_date",
     "sw360Link" => "ri_sw360_link",
+    "componentType" => "ri_component_type",
+    "componentId" => "ri_component_id",
     "footerNote" => "ri_footer",
     "generalAssesment" => "ri_general_assesment",
     "gaAdditional" => "ri_ga_additional",
@@ -72,7 +64,7 @@ class ui_report_conf extends FO_Plugin
   );
 
   /**
-   * @var radioListUR $radioListUR
+   * @var array $radioListUR
    */
   private $radioListUR = array(
     "nonCritical" => "critical",
@@ -87,7 +79,7 @@ class ui_report_conf extends FO_Plugin
   );
 
   /**
-   * @var checkBoxListSPDX $checkBoxListSPDX
+   * @var array $checkBoxListSPDX
    */
   private $checkBoxListSPDX = array(
     "spdxLicenseComment" => "spdxLicenseComment",
@@ -196,9 +188,9 @@ class ui_report_conf extends FO_Plugin
                      $obData['text'].'</textarea></td><td>';
       foreach ($obData['license'] as $value) {
         if (!empty($excludedObligations[$obTopic]) && in_array($value, $excludedObligations[$obTopic])) {
-          $tableRows .= '<input type="checkbox" name="obLicenses['.urlencode($obTopic).'][]" value="'.$value.'" checked> '.$value.'<br />';
+          $tableRows .= '<input class="browse-upload-checkbox view-license-rc-size" type="checkbox" name="obLicenses['.urlencode($obTopic).'][]" value="'.$value.'" checked> '.$value.'<br />';
         } else {
-          $tableRows .= '<input type="checkbox" name="obLicenses['.urlencode($obTopic).'][]" value="'.$value.'"> '.$value.'<br />';
+          $tableRows .= '<input class="browse-upload-checkbox view-license-rc-size" type="checkbox" name="obLicenses['.urlencode($obTopic).'][]" value="'.$value.'"> '.$value.'<br />';
         }
       }
       $tableRows .= '</td></tr>';
@@ -213,14 +205,17 @@ class ui_report_conf extends FO_Plugin
     foreach ($unifiedColumns as $name => $unifiedReportColumns) {
       foreach ($unifiedReportColumns as $columnName => $isenabled) {
         $tableRowsUnifiedReport .= '<tr>';
-        $tableRowsUnifiedReport .= '<td><input type="text" style="width:95%" name="'.$name.'[]" value="'.$columnName.'"></td>';
+        $tableRowsUnifiedReport .= '<td><input class="form-control" type="text" style="width:95%" name="'.$name.'[]" value="'.$columnName.'"></td>';
         $checked = '';
         if ($isenabled) {
           $checked = 'checked';
         }
-        $tableRowsUnifiedReport .= '<td><input type="checkbox" style="width:95%" name="'.$name.'[]" '.$checked.'></td>';
+        $tableRowsUnifiedReport .= '<td style="vertical-align:middle"><input class="browse-upload-checkbox view-license-rc-size" type="checkbox" style="width:95%" name="'.$name.'[]" '.$checked.'></td>';
         $tableRowsUnifiedReport .= '</tr>';
       }
+    }
+    if (!empty($row['ri_globaldecision'])) {
+      $vars['applyGlobal'] = "checked";
     }
     $vars['tableRows'] = $tableRows;
     $vars['tableRowsUnifiedReport'] = $tableRowsUnifiedReport;
@@ -311,6 +306,8 @@ class ui_report_conf extends FO_Plugin
     $submitReportConf = GetParm("submitReportConf", PARM_STRING);
 
     if (isset($submitReportConf)) {
+      $applyGlobal = @$_POST["applyGlobal"];
+      $applyGlobal = !empty($applyGlobal) ? 1 : 0;
       $parms = array();
       $obLicensesEncoded = @$_POST["obLicenses"];
       $obLicensesEncoded = !empty($obLicensesEncoded) ? $obLicensesEncoded : array();
@@ -341,6 +338,8 @@ class ui_report_conf extends FO_Plugin
       $excludeObligationPos = count($parms);
       $parms[] = json_encode($unifiedReportColumnsForJson);
       $unifiedColumnsPos = count($parms);
+      $parms[] = $applyGlobal;
+      $applyGlobalPos = count($parms);
       $parms[] = $uploadId;
       $uploadIdPos = count($parms);
 
@@ -348,7 +347,8 @@ class ui_report_conf extends FO_Plugin
                "ri_ga_checkbox_selection = $$checkBoxUrPos, " .
                "ri_spdx_selection = $$checkBoxSpdxPos, " .
                "ri_excluded_obligations = $$excludeObligationPos, " .
-               "ri_unifiedcolumns = $$unifiedColumnsPos" .
+               "ri_unifiedcolumns = $$unifiedColumnsPos, " .
+               "ri_globaldecision = $$applyGlobalPos " .
                "WHERE upload_fk = $$uploadIdPos;";
       $this->dbManager->getSingleRow($SQL, $parms,
         __METHOD__ . "updateReportInfoData");
@@ -370,6 +370,13 @@ class ui_report_conf extends FO_Plugin
       }
     }
     $this->vars += $this->allReportConfiguration($uploadId, $groupId);
+    $this->vars['typemap'] = [];
+    foreach (ComponentType::TYPE_MAP as $key => $name) {
+      if ($key == ComponentType::PACKAGEURL) {
+        continue;
+      }
+      $this->vars['typemap'][] = ['key' => $key, 'name' => $name];
+    }
   }
 
   public function getTemplateName()

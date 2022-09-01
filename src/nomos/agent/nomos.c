@@ -1,21 +1,9 @@
-/***************************************************************
- Copyright (C) 2006-2015 Hewlett-Packard Development Company, L.P.
- Copyright (C) 2014, 2018 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2006-2015 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2014, 2018 Siemens AG
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * \file
  * \brief Main for the nomos agent
@@ -310,13 +298,13 @@ int main(int argc, char **argv)
   /* Record the progname name */
   if ((cp = strrchr(*argv, '/')) == NULL_STR)
   {
-    strncpy(gl.progName, *argv, sizeof(gl.progName));
+    strncpy(gl.progName, *argv, sizeof(gl.progName)-1);
   }
   else
   {
     while (*cp == '.' || *cp == '/')
       cp++;
-    strncpy(gl.progName, cp, sizeof(gl.progName));
+    strncpy(gl.progName, cp, sizeof(gl.progName)-1);
   }
 
   if (putenv("LANG=C") < 0)

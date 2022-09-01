@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- * Copyright (C) 2010-2013 Hewlett-Packard Development Company, L.P.
- * Copyright (C) 2014-2015 Siemens AG
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+/*
+ SPDX-FileCopyrightText: © 2010-2013 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2014-2015 Siemens AG
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Dao\FolderDao;
@@ -24,6 +13,7 @@ use Fossology\Lib\Dao\UserDao;
 use Fossology\Lib\Db\DbManager;
 use Fossology\Lib\UI\FolderNav;
 use Fossology\Lib\UI\MenuHook;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 define("TITLE_UI_BROWSE", _("Browse"));
@@ -322,6 +312,12 @@ class ui_browse extends FO_Plugin
       }
 
       if (! Iscontainer($row['ufile_mode'])) {
+        $parentItemBounds = $this->uploadDao->getParentItemBounds($Upload);
+        if (! $parentItemBounds->containsFiles()) {
+          // Upload with a single file, open license view
+          return new RedirectResponse(Traceback_uri() . '?mod=view-license'
+            . Traceback_parm_keep(array("upload", "item")));
+        }
         global $Plugins;
         $View = &$Plugins[plugin_find_id("view")];
         if (! empty($View)) {

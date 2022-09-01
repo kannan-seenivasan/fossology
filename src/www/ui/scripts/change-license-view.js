@@ -1,20 +1,9 @@
 /*
- Copyright (C) 2014-2018, Siemens AG
+ SPDX-FileCopyrightText: © 2014-2018, 2021 Siemens AG
  Author: Daniele Fognini, Johannes Najjar
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 var defaultScope;
 var defaultType;
@@ -36,7 +25,13 @@ function closeBulkModal() {
   $('#bulkModal').hide();
 }
 
-function openUserModal() {
+// Hide backdrop for bulk modal
+$('#bulkModal').on('shown.bs.modal', function () {
+  $('.modal-backdrop').css('display', 'none');
+  $('#bulkModal').css({'width': 'fit-content', 'margin': '0 auto'});
+});
+
+function openUserDecisionModal() {
   $('#bulkModal').hide();
   $('#ClearingHistoryDataModal').hide();
   $('#userModal').toggle();
@@ -62,6 +57,7 @@ $("#textModal").on('hide.bs.modal', function (e) {
     $("#bulkModal").modal("show");
   }
 });
+
 function openClearingHistoryDataModal() {
   $('#bulkModal').hide();
   $('#userModal').hide();
@@ -87,17 +83,24 @@ function scheduleBulkScan() {
   scheduleBulkScanCommon($('#bulkIdResult'), reloadClearingTable);
 }
 
-function cleanText() {
-  var $textField = $('#bulkRefText');
-  var text = $textField.val();
+function cleanText(textField) {
+  var text = textField.val();
 
+  var delimiters = $("#delimdrop").val();
+  if (delimiters.toLowerCase() === "default") {
+    delimiters = '\t\f#^%*';
+  }
+  delimiters = escapeRegExp(delimiters);
+  var re = new RegExp("[" + delimiters + "]+", "gi");
   text = text.replace(/ [ ]*/gi, ' ')
-             .replace(/(^|\n)[ \t]*/gi,'$1')
              .replace(/(^|\n) ?\/[\*\/]+/gi, '$1')
+             .replace(/(^|\n) ?['"]{3}/gi, '$1')
              .replace(/[\*]+\//gi, '')
-             .replace(/(^|\n) ?#+/gi,'$1')
+             .replace(/(^|\n) ?(dnl)+/gi, '$1')
+             .replace(re, ' ')
+             .replace(/(^|\n)[ \t]*/gim, '$1')
              ;
-  $textField.val(text);
+  textField.val(text);
 }
 
 

@@ -1,8 +1,6 @@
-{# Copyright 2014-2017 Siemens AG
+{# SPDX-FileCopyrightText: © 2014-2017 Siemens AG
 
-   Copying and distribution of this file, with or without modification,
-   are permitted in any medium without royalty provided the copyright notice and this notice are preserved.
-   This file is offered as-is, without any warranty.
+   SPDX-License-Identifier: FSFAP
 #}
 {% macro radioGroup(id,options,select,action,separator) %}
   {% for key,disp in options %}
@@ -78,4 +76,13 @@
       </option>
     {% endfor %}
   </select>
+{% endmacro %}
+
+{% macro bootstrapalert(id, type) %}
+  <div class="alert {% if type is defined %}alert-{{ type }}{% else %}alert-primary{% endif %} alert-dismissible fade show w-100" role="alert" id="{{ id }}" style="display:none">
+    <span></span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
 {% endmacro %}

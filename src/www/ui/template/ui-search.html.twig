@@ -1,8 +1,6 @@
-{# Copyright 2014-2015,2021, Siemens AG
+{# SPDX-FileCopyrightText: © 2014-2015, 2021 Siemens AG
 
-   Copying and distribution of this file, with or without modification,
-   are permitted in any medium without royalty provided the copyright notice and this notice are preserved.
-   This file is offered as-is, without any warranty.
+   SPDX-License-Identifier: FSFAP
 #}
 {% extends "include/base.html.twig" %}
 
@@ -113,6 +111,19 @@
       </li>
 
     </ul>
+
+    <p>
+      <div>
+        <b><label>Show</label></b>
+        <select name="limit">
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50" selected="selected">50</option>
+          <option value="100">100</option>
+        </select>
+        <b><label>entries</label></b>
+      </div>
+    </p>
 
     <input type='hidden' name='item' value='{{ Item }}'>
     <div class="form-group">

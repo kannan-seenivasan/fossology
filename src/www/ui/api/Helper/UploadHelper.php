@@ -1,23 +1,10 @@
 <?php
-/**
- * *************************************************************
- * Copyright (C) 2018,2020 Siemens AG
- * Author: Gaurav Mishra <mishra.gaurav@siemens.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- * *************************************************************
- */
+/*
+ SPDX-FileCopyrightText: © 2018, 2020 Siemens AG
+ Author: Gaurav Mishra <mishra.gaurav@siemens.com>
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * @file
@@ -25,7 +12,7 @@
  */
 namespace Fossology\UI\Api\Helper;
 
-use Psr\Http\Message\ServerRequestInterface;
+use Slim\Psr7\Request;
 use Fossology\UI\Api\Helper\UploadHelper\HelperToUploadFilePage;
 use Fossology\UI\Api\Helper\UploadHelper\HelperToUploadVcsPage;
 use Fossology\UI\Api\Helper\UploadHelper\HelperToUploadUrlPage;
@@ -36,6 +23,7 @@ use Fossology\Lib\Proxy\ScanJobProxy;
 use Fossology\Lib\Proxy\UploadTreeProxy;
 use Fossology\Lib\Dao\AgentDao;
 use Fossology\UI\Api\Models\Findings;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * @class UploadHelper
@@ -101,21 +89,30 @@ class UploadHelper
    * Get a request from Slim and translate to Symfony request to be
    * processed by FOSSology
    *
-   * @param ServerRequestInterface $request
+   * @param array|null $request
    * @param string $folderId ID of the folder to upload the file
    * @param string $fileDescription Description of file uploaded
    * @param string $isPublic   Upload is `public, private or protected`
    * @param boolean $ignoreScm True if the SCM should be ignored.
    * @param string $uploadType Type of upload (if other than file)
+   * @param boolean $applyGlobal True if global decisions should be applied.
    * @return array Array with status, message and upload id
    * @see createVcsUpload()
    * @see createFileUpload()
    */
-  public function createNewUpload(ServerRequestInterface $request, $folderId,
-    $fileDescription, $isPublic, $ignoreScm, $uploadType)
+  public function createNewUpload($reqBody, $folderId, $fileDescription,
+    $isPublic, $ignoreScm, $uploadType, $applyGlobal = false)
   {
-    $uploadedFile = $request->getUploadedFiles();
-    $body = $request->getParsedBody();
+    $symReq = \Symfony\Component\HttpFoundation\Request::createFromGlobals();
+    $uploadedFile = $symReq->files->get($this->uploadFilePage::FILE_INPUT_NAME,
+      null);
+
+    if ($applyGlobal) {
+      // If global decisions should be ignored
+      $applyGlobal = 1;
+    } else {
+      $applyGlobal = 0;
+    }
 
     if (! empty($ignoreScm) && ($ignoreScm == "true")) {
       // If SCM should be ignored
@@ -123,8 +120,7 @@ class UploadHelper
     } else {
       $ignoreScm = 0;
     }
-    if (empty($uploadedFile) ||
-      ! isset($uploadedFile[$this->uploadFilePage::FILE_INPUT_NAME])) {
+    if (empty($uploadedFile)) {
       if (empty($uploadType)) {
         return array(false, "Missing 'uploadType' header",
           "Send file with parameter " . $this->uploadFilePage::FILE_INPUT_NAME .
@@ -132,34 +128,28 @@ class UploadHelper
           - 1
         );
       }
-      return $this->handleUpload($body, $uploadType, $folderId,
-        $fileDescription, $isPublic, $ignoreScm);
+      return $this->handleUpload($reqBody, $uploadType, $folderId,
+        $fileDescription, $isPublic, $ignoreScm, $applyGlobal);
     } else {
-      $uploadedFile = $uploadedFile[$this->uploadFilePage::FILE_INPUT_NAME];
       return $this->createFileUpload($uploadedFile, $folderId,
-        $fileDescription, $isPublic, $ignoreScm);
+        $fileDescription, $isPublic, $ignoreScm, $applyGlobal);
     }
   }
 
   /**
    * Create request required by UploadFilePage
    *
-   * @param array $uploadedFile Uploaded file object by Slim
+   * @param UploadedFile $uploadedFile Uploaded file object
    * @param string $folderId    ID of the folder to upload the file
    * @param string $fileDescription Description of file uploaded
    * @param string $isPublic    Upload is `public, private or protected`
    * @param integer $ignoreScm  1 if the SCM should be ignored.
+   * @param integer $applyGlobal 1 if global decisions should be applied.
    * @return array Array with status, message and upload id
    */
   private function createFileUpload($uploadedFile, $folderId, $fileDescription,
-    $isPublic, $ignoreScm = 0)
+    $isPublic, $ignoreScm = 0, $applyGlobal = 0)
   {
-    $path = $uploadedFile->file;
-    $originalName = $uploadedFile->getClientFilename();
-    $originalMime = $uploadedFile->getClientMediaType();
-    $originalError = $uploadedFile->getError();
-    $symfonyFile = new \Symfony\Component\HttpFoundation\File\UploadedFile(
-      $path, $originalName, $originalMime, $originalError);
     $symfonyRequest = new \Symfony\Component\HttpFoundation\Request();
     $symfonySession = $GLOBALS['container']->get('session');
     $symfonySession->set(
@@ -167,14 +157,16 @@ class UploadHelper
 
     $symfonyRequest->request->set($this->uploadFilePage::FOLDER_PARAMETER_NAME,
       $folderId);
-    $symfonyRequest->request->set($this->uploadFilePage::DESCRIPTION_INPUT_NAME,
-      $fileDescription);
+    $symfonyRequest->request->set(
+      $this->uploadFilePage::DESCRIPTION_INPUT_NAME,
+      [$fileDescription]);
     $symfonyRequest->files->set($this->uploadFilePage::FILE_INPUT_NAME,
-      $symfonyFile);
+      [$uploadedFile]);
     $symfonyRequest->setSession($symfonySession);
     $symfonyRequest->request->set(
       $this->uploadFilePage::UPLOAD_FORM_BUILD_PARAMETER_NAME, "restUpload");
     $symfonyRequest->request->set('public', $isPublic);
+    $symfonyRequest->request->set('globalDecisions', $applyGlobal);
     $symfonyRequest->request->set('scm', $ignoreScm);
 
     return $this->uploadFilePage->handleRequest($symfonyRequest);
@@ -189,10 +181,11 @@ class UploadHelper
    * @param string $fileDescription Description of file uploaded
    * @param string $isPublic   Upload is `public, private or protected`
    * @param integer $ignoreScm 1 if the SCM should be ignored.
+   * @param integer $applyGlobal 1 if global decisions should be applied.
    * @return array Array with status, message and upload id
    */
   private function handleUpload($body, $uploadType, $folderId, $fileDescription,
-    $isPublic, $ignoreScm = 0)
+    $isPublic, $ignoreScm = 0, $applyGlobal = 0)
   {
     $sanity = false;
     switch ($uploadType) {
@@ -219,15 +212,15 @@ class UploadHelper
     switch ($uploadType) {
       case "vcs":
         $uploadResponse = $this->generateVcsUpload($body, $folderId,
-          $fileDescription, $isPublic, $ignoreScm);
+          $fileDescription, $isPublic, $ignoreScm, $applyGlobal);
         break;
       case "url":
         $uploadResponse = $this->generateUrlUpload($body, $folderId,
-          $fileDescription, $isPublic, $ignoreScm);
+          $fileDescription, $isPublic, $ignoreScm, $applyGlobal);
         break;
       case "server":
         $uploadResponse = $this->generateSrvUpload($body, $folderId,
-          $fileDescription, $isPublic, $ignoreScm);
+          $fileDescription, $isPublic, $ignoreScm, $applyGlobal);
         break;
     }
     return $uploadResponse;
@@ -367,10 +360,11 @@ class UploadHelper
    * @param string  $fileDescription Description of the upload
    * @param string  $isPublic        Upload is `public, private or protected`
    * @param integer $ignoreScm       1 if the SCM should be ignored.
+   * @param boolean $applyGlobal     1 if global decisions should be applied.
    * @return array Array with status, message and upload id
    */
   private function generateVcsUpload($vcsData, $folderId, $fileDescription,
-    $isPublic, $ignoreScm)
+    $isPublic, $ignoreScm, $applyGlobal)
   {
     $vcsType = $vcsData["vcsType"];
     $vcsUrl = $vcsData["vcsUrl"];
@@ -399,6 +393,7 @@ class UploadHelper
     $symfonyRequest->request->set('username', $vcsUsername);
     $symfonyRequest->request->set('passwd', $vcsPasswd);
     $symfonyRequest->request->set('branch', $vcsBranch);
+    $symfonyRequest->request->set('globalDecisions', $applyGlobal);
     $symfonyRequest->request->set('scm', $ignoreScm);
 
     return $this->uploadVcsPage->handleRequest($symfonyRequest);
@@ -411,10 +406,11 @@ class UploadHelper
    * @param string  $fileDescription Description of the upload
    * @param string  $isPublic        Upload is `public, private or protected`
    * @param integer $ignoreScm       1 if the SCM should be ignored.
+   * @param integer $applyGlobal     1 if global decisions should be applied.
    * @return array Array with status, message and upload id
    */
   private function generateUrlUpload($urlData, $folderName, $fileDescription,
-    $isPublic, $ignoreScm)
+    $isPublic, $ignoreScm, $applyGlobal)
   {
     $url = $urlData["url"];
     $name = $urlData["name"];
@@ -442,6 +438,7 @@ class UploadHelper
     $symfonyRequest->request->set($this->uploadUrlPage::GETURL_PARAM, $url);
     $symfonyRequest->request->set($this->uploadUrlPage::LEVEL_PARAM,
       $maxRecursionDepth);
+    $symfonyRequest->request->set('globalDecisions', $applyGlobal);
     $symfonyRequest->request->set('scm', $ignoreScm);
 
     return $this->uploadUrlPage->handleRequest($symfonyRequest);
@@ -454,10 +451,11 @@ class UploadHelper
    * @param string  $fileDescription Description of the upload
    * @param string  $isPublic        Upload is `public, private or protected`
    * @param integer $ignoreScm       1 if the SCM should be ignored.
+   * @param integer $applyGlobal     1 if global decisions should be applied.
    * @return array Array with status, message and upload id
    */
   private function generateSrvUpload($srvData, $folderName, $fileDescription,
-    $isPublic, $ignoreScm)
+    $isPublic, $ignoreScm, $applyGlobal)
   {
     $path = $srvData["path"];
     $name = $srvData["name"];
@@ -479,6 +477,7 @@ class UploadHelper
     $symfonyRequest->request->set($this->uploadSrvPage::SOURCE_FILES_FIELD,
       $path);
     $symfonyRequest->request->set($this->uploadSrvPage::NAME_PARAM, $name);
+    $symfonyRequest->request->set('globalDecisions', $applyGlobal);
     $symfonyRequest->request->set('scm', $ignoreScm);
 
     return $this->uploadSrvPage->handleRequest($symfonyRequest);
@@ -576,14 +575,69 @@ class UploadHelper
   }
 
   /**
-   * Get the license list for given upload scanned by provided agents
+   * Get the copyright list for given upload scanned by copyright agent
+   * @param integer $uploadId        Upload ID
+   * @return array Array containing `copyright` and
+   * `filepath` for each upload tree item
+   */
+  public function getUploadCopyrightList($uploadId)
+  {
+    global $container;
+    $restHelper = $container->get('helper.restHelper');
+    $uploadDao = $restHelper->getUploadDao();
+    $agentDao = $container->get('dao.agent');
+
+    $uploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadId);
+    $parent = $uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
+
+    $scanProx = new ScanJobProxy($agentDao, $uploadId);
+    /** @var UIExportList $copyrightListObj
+     * UIExportList object to get copyright
+     */
+
+    $copyrightListObj = $restHelper->getPlugin('export-list');
+    $copyrightList = $copyrightListObj->getCopyrights($uploadId,
+      $parent->getItemId(), $uploadTreeTableName, -1, '');
+    if (array_key_exists("warn", $copyrightList)) {
+      unset($copyrightList["warn"]);
+    }
+
+    $responseList = array();
+    foreach ($copyrightList as $copyFilepath) {
+      $flag=0;
+      foreach ($responseList as $response) {
+        if ($copyFilepath['content'] == $response['copyright']) {
+          $flag=1;
+          break;
+        }
+      }
+      if ($flag==0) {
+        $copyrightContent = array();
+        foreach ($copyrightList as $copy) {
+          if (strcasecmp($copyFilepath['content'], $copy['content']) == 0) {
+            $copyrightContent[] = $copy['filePath'];
+          }
+        }
+        $responseRow = array();
+        $responseRow['copyright'] = $copyFilepath['content'];
+        $responseRow['filePath'] = $copyrightContent;
+        $responseList[] = $responseRow;
+      }
+    }
+    return $responseList;
+  }
+
+  /**
+   * Get the license and copyright list for given upload scanned by provided agents
    * @param integer $uploadId        Upload ID
    * @param array $agents            List of agents to get list from
    * @param boolean $printContainers If true, print container info also
+   * @param boolean $boolLicense If true, return license
+   * @param boolean $boolCopyright If true return copyright also
    * @return array Array containing `filePath`, `agentFindings` and
    * `conclusions` for each upload tree item
    */
-  public function getUploadLicenseList($uploadId, $agents, $printContainers)
+  public function getUploadLicenseList($uploadId, $agents, $printContainers, $boolLicense, $boolCopyright)
   {
     global $container;
     $restHelper = $container->get('helper.restHelper');
@@ -600,21 +654,65 @@ class UploadHelper
     /** @var UIExportList $licenseListObj
      * UIExportList object to get licenses
      */
-    $licenseListObj = $restHelper->getPlugin('export-list');
-    $licenseList = $licenseListObj->createListOfLines($uploadTreeTableName,
-      $parent->getItemId(), $agent_ids, -1, true, '', !$printContainers);
-    if (array_key_exists("warn", $licenseList)) {
-      unset($licenseList["warn"]);
+    if ($boolLicense) {
+      $licenseListObj = $restHelper->getPlugin('export-list');
+      $licenseList = $licenseListObj->createListOfLines($uploadTreeTableName,
+        $parent->getItemId(), $agent_ids, -1, true, '', !$printContainers);
+      if (array_key_exists("warn", $licenseList)) {
+        unset($licenseList["warn"]);
+      }
+    }
+
+    /** @var UIExportList $copyrightListObj
+     * UIExportList object to get copyright
+     */
+    if ($boolCopyright) {
+      $copyrightListObj = $restHelper->getPlugin('export-list');
+      $copyrightList = $copyrightListObj->getCopyrights($uploadId,
+        $parent->getItemId(), $uploadTreeTableName, -1, '');
+      if (array_key_exists("warn", $copyrightList)) {
+        unset($copyrightList["warn"]);
+      }
     }
 
     $responseList = array();
-    foreach ($licenseList as $license) {
-      $findings = new Findings($license['agentFindings'],
-        $license['conclusions']);
-      $responseRow = array();
-      $responseRow['filePath'] = $license['filePath'];
-      $responseRow['findings'] = $findings->getArray();
-      $responseList[] = $responseRow;
+
+    if ($boolLicense) {
+      foreach ($licenseList as $license) {
+        if ($boolCopyright) {
+          $copyrightContent = array();
+          foreach ($copyrightList as $copy) {
+            if (($license['filePath'] == $copy['filePath']) !== false ) {
+              array_push($copyrightContent,$copy['content']);
+            }
+          }
+          if (count($copyrightContent)==0) {
+            $copyrightContent = null;
+          }
+        }
+
+        $findings = new Findings($license['agentFindings'],
+          $license['conclusions'], $copyrightContent);
+        $responseRow = array();
+        $responseRow['filePath'] = $license['filePath'];
+        $responseRow['findings'] = $findings->getArray();
+        $responseList[] = $responseRow;
+      }
+    } elseif (!$boolLicense && $boolCopyright) {
+      foreach ($copyrightList as $copyFilepath) {
+        $copyrightContent = array();
+        foreach ($copyrightList as $copy) {
+          if (($copyFilepath['filePath'] == $copy['filePath']) === true) {
+            array_push($copyrightContent,$copy['content']);
+          }
+        }
+        $findings = new Findings();
+        $findings->setCopyright($copyrightContent);
+        $responseRow = array();
+        $responseRow['filePath'] = $copy['filePath'];
+        $responseRow['copyright'] = $findings->getCopyright();
+        $responseList[] = $responseRow;
+      }
     }
     return $responseList;
   }

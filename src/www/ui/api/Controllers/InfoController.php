@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- Copyright (C) 2019,2021 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2019, 2021 Siemens AG
  Author: Gaurav Mishra <mishra.gaurav@siemens.com>
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Controller to get REST API information
@@ -23,8 +12,8 @@
 
 namespace Fossology\UI\Api\Controllers;
 
+use Fossology\UI\Api\Helper\ResponseHelper;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\ResponseInterface;
 use Symfony\Component\Yaml\Parser;
 use Symfony\Component\Yaml\Exception\ParseException;
 
@@ -38,12 +27,12 @@ class InfoController extends RestController
    * Get the current API info
    *
    * @param ServerRequestInterface $request
-   * @param ResponseInterface $response
-   * @param array $args
-   * @return ResponseInterface
+   * @param ResponseHelper $response
+   * @return ResponseHelper
    */
-  public function getInfo($request, $response, $args)
+  public function getInfo($request, $response)
   {
+    global $SysConf;
     try {
       $yaml = new Parser();
       $yamlDocArray = $yaml->parse(file_get_contents(__DIR__ ."/../documentation/openapi.yaml"));
@@ -60,6 +49,26 @@ class InfoController extends RestController
     foreach ($yamlDocArray["security"] as $secMethod) {
       $security[] = key($secMethod);
     }
+    $fossInfo = [
+      "version"    => null,
+      "branchName" => null,
+      "commitHash" => null,
+      "commitDate" => null,
+      "buildDate"  => null
+    ];
+    if (array_key_exists('BUILD', $SysConf)) {
+      $fossInfo["version"]    = $SysConf['BUILD']['VERSION'];
+      $fossInfo["branchName"] = $SysConf['BUILD']['BRANCH'];
+      $fossInfo["commitHash"] = $SysConf['BUILD']['COMMIT_HASH'];
+      if (strcasecmp($SysConf['BUILD']['COMMIT_DATE'], "unknown") != 0) {
+        $fossInfo["commitDate"] = date(DATE_ATOM,
+          strtotime($SysConf['BUILD']['COMMIT_DATE']));
+      }
+      if (strcasecmp($SysConf['BUILD']['BUILD_DATE'], "unknown") != 0) {
+        $fossInfo["buildDate"] = date(DATE_ATOM,
+          strtotime($SysConf['BUILD']['BUILD_DATE']));
+      }
+    }
     return $response->withJson(array(
       "name" => $apiTitle,
       "description" => $apiDescription,
@@ -69,7 +78,8 @@ class InfoController extends RestController
       "license" => [
         "name" => $apiLicense["name"],
         "url" => $apiLicense["url"]
-      ]
+      ],
+      "fossology" => $fossInfo
     ), 200);
   }
 
@@ -77,9 +87,9 @@ class InfoController extends RestController
    * Get the API health status
    *
    * @param ServerRequestInterface $request
-   * @param ResponseInterface $response
+   * @param ResponseHelper $response
    * @param array $args  Set to -1 in index.php if DB connection failed
-   * @return ResponseInterface
+   * @return ResponseHelper
    */
   public function getHealth($request, $response, $args)
   {

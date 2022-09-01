@@ -1,20 +1,9 @@
 <?php
 /*
-Copyright (C) 2014-2018, Siemens AG
-Author: Andreas Würl
+ SPDX-FileCopyrightText: © 2014-2018 Siemens AG
+ Author: Andreas Würl
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 namespace Fossology\Lib\Dao;
@@ -115,6 +104,9 @@ class CopyrightDao
                                $description, $textFinding, $comment, $decision_pk=-1)
   {
     $textFinding = StringOperation::replaceUnicodeControlChar($textFinding);
+    if (empty($textFinding)) {
+      return;
+    }
     $primaryColumn = $tableName . '_pk';
     $assocParams = array(
       'user_fk' => $userId,
@@ -451,7 +443,7 @@ ORDER BY copyright_pk, UT.uploadtree_pk, content DESC";
    * @param int $userId
    * @param string $cpTable
    */
-  public function updateTable($item, $hash, $content, $userId, $cpTable='copyright', $action='', $scope=1)
+  public function updateTable($item, $hash, $content, $userId, $cpTable, $action='', $scope=1)
   {
     $cpTablePk = $cpTable."_pk";
     $cpTableEvent = $cpTable."_event";
@@ -545,6 +537,8 @@ WHERE $withHash ( ut.lft BETWEEN $1 AND $2 ) $agentFilter AND ut.upload_fk = $3"
   {
     if (array_search($table, ["ecc", "keyword", "copyright"]) !== false) {
       return $table;
+    } else if (array_search($table, ["scancode_copyright", "scancode_author"]) !== false) {
+      return "scancode";
     }
     return "copyright";
   }

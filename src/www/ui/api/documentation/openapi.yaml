@@ -1,21 +1,13 @@
-# Copyright (C) Siemens AG 2017-2021
-# Copyright (C) 2021 Orange by Piotr Pszczola <piotr.pszczola@orange.com>
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# version 2 as published by the Free Software Foundation.
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+# SPDX-FileCopyrightText: © 2017-2022 Siemens AG
+# SPDX-FileCopyrightText: © 2021 Orange by Piotr Pszczola <piotr.pszczola@orange.com>
+
+# SPDX-License-Identifier: GPL-2.0-only
 
 openapi: 3.0.2
 info:
   title: FOSSology API
   description: Automate your fossology instance using REST API
-  version: 1.3.4
+  version: 1.4.3
   contact:
     email: fossology@fossology.org
   license:
@@ -26,6 +18,7 @@ servers:
     description: Localhost instance
 security:
   - bearerAuth: []
+  - oauth: []
 externalDocs:
   description: Basic guide
   url: https://github.com/fossology/fossology/wiki/FOSSology-REST-API
@@ -69,12 +62,22 @@ paths:
         description: Required details for generating new token
         required: true
         content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TokenRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/TokenRequest'
+              allOf:
+                - $ref: '#/components/schemas/TokenRequest'
+                - type: object
+                  properties:
+                    username:
+                      type: string
+                      description: Username of the login user.
+                    password:
+                      type: string
+                      format: password
+                      description: Password of the user trying to login.
+                  required:
+                    - username
+                    - password
       responses:
         '201':
           description: Token generated
@@ -151,13 +154,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HeathInfo'
+                $ref: '#/components/schemas/HealthInfo'
         '503':
           description: The API is not unavailable
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HeathInfo'
+                $ref: '#/components/schemas/HealthInfo'
 
   /uploads/{id}:
     parameters:
@@ -221,21 +224,43 @@ paths:
         default:
           $ref: '#/components/responses/defaultResponse'
     patch:
-      operationId: moveUploadById
+      operationId: updateUploadById
       tags:
         - Upload
         - Organize
-      description: Move upload from one folder to other
+      description: Update an upload information
       parameters:
-        - name: folderId
-          description: Folder Id, where upload should be moved to
-          in: header
-          required: true
+        - name: status
+          description: New status of the upload
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - Open
+              - InProgress
+              - Closed
+              - Rejected
+          example: Closed
+        - name: assignee
+          description: New assignee for the project
+          in: query
+          required: false
           schema:
             type: integer
+      requestBody:
+        description: >
+          Comment on the status, required for Closed and Rejected states.
+          Ignored for others.
+        content:
+          text/plain:
+            schema:
+              description: The comment for new status
+              type: string
+              example: "The upload cleared for use."
       responses:
         '202':
-          description: Upload will be moved
+          description: Upload will be updated
           content:
             application/json:
               schema:
@@ -243,11 +268,11 @@ paths:
         default:
           $ref: '#/components/responses/defaultResponse'
     put:
-      operationId: copyUploadById
+      operationId: moveUploadById
       tags:
         - Upload
         - Organize
-      description: Can be used to copy uploads
+      description: Copy or move an upload by id
       parameters:
         - name: folderId
           description: Folder Id, where upload should be copied to
@@ -255,9 +280,19 @@ paths:
           required: true
           schema:
             type: integer
+        - name: action
+          in: header
+          required: true
+          description: Action to be performed
+          schema:
+            type: string
+            enum:
+              - copy
+              - move
+      summary: Copy/Move an upload
       responses:
         '202':
-          description: Upload will be copied
+          description: Upload will be copied/moved
           content:
             application/json:
               schema:
@@ -403,6 +438,14 @@ paths:
               - protected
               - public
             default: protected
+        - name: applyGlobal
+          description: >
+            Apply global decisions for current upload
+          in: header
+          required: false
+          schema:
+            type: boolean
+            default: false
         - name: ignoreScm
           description: >
             Ignore SCM files (Git, SVN, TFS) and files with particular Mimetype
@@ -501,6 +544,7 @@ paths:
               - ojo
               - reportImport
               - reso
+              - scancode
           uniqueItems: true
         style: form
         explode: false
@@ -511,6 +555,20 @@ paths:
         schema:
           type: boolean
           default: true
+      - name: license
+        required: false
+        description: Show license in response
+        in: query
+        schema:
+          type: boolean
+          default: true    
+      - name: copyright
+        required: false
+        description: Show copyrights in response
+        in: query
+        schema:
+          type: boolean
+          default: false    
       - name: groupName
         description: The group name to chose while accessing the package
         in: header
@@ -535,6 +593,52 @@ paths:
         '503':
           description: >
             The ununpack agent or queried agents have not started yet. Please
+            check the 'Look-at' header for more information.
+          headers:
+            'Look-at':
+              description: Contains the URL to get jobs for the given upload
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '412':
+          description: >
+            The agent has not been scheduled for the upload. Please check the
+            response message.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+
+  /uploads/{id}/copyrights:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the upload
+        in: path
+        schema:
+          type: integer
+    get:
+      operationId: getCopyrightsByUploadId
+      tags:
+        - Upload
+      summary: Get copyrights found on the upload
+      description:
+        Returns the list of copyrights found on the requested upload.
+      responses:
+        '200':
+          description: Get copyrights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadCopyrights'
+        '503':
+          description: >
+            The ununpack agent or copyright agents have not started yet. Please
             check the 'Look-at' header for more information.
           headers:
             'Look-at':
@@ -600,6 +704,23 @@ paths:
           in: header
           schema:
             type: string
+        - name: page
+          description: Page number (starts from 1)
+          required: false
+          in: header
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          description: Limits of responses per request
+          required: false
+          in: header
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
         - name: filesizemin
           description: Min filesize in bytes
           required: false
@@ -629,6 +750,11 @@ paths:
       responses:
         '200':
           description: OK
+          headers:
+            X-Total-Pages:
+              description: Total number of pages which can be generated based on limit
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -638,6 +764,70 @@ paths:
         default:
           $ref: '#/components/responses/defaultResponse'
   /users:
+    post:
+        operationId: createUser
+        tags:
+        - User
+        - Admin
+        summary: Create a new user
+        description: >
+          Create a new user
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/User'
+                  - type: object
+                    properties:
+                      user_pass:
+                        type: string
+                      defaultVisibility:
+                        type: string
+                        enum:
+                          - public
+                          - protected
+                          - private
+                    required:
+                      - name
+            application/x-www-form-urlencoded:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/User'
+                  - type: object
+                    properties:
+                      user_pass:
+                        type: string
+                      defaultVisibility:
+                        type: string
+                        enum:
+                          - public
+                          - protected
+                          - private
+                    required:
+                      - name
+        responses:
+          '201':
+            description: User created successfully
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Info'
+          '409':
+            description: User with the same email or username already exists
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Info'
+          '500':
+            description: Internal server error with details
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Info'
+          default:
+              $ref: '#/components/responses/defaultResponse'
     get:
       operationId: getUsers
       tags:
@@ -679,6 +869,77 @@ paths:
                 $ref: '#/components/schemas/User'
         default:
             $ref: '#/components/responses/defaultResponse'
+    put:
+      operationId: modifyUserById
+      tags:
+        - User
+        - Admin
+      summary: Edit user details by id
+      description: >
+        Edit user details by id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/User'
+                - type: object
+                  properties:
+                    user_pass:
+                      type: string
+                    defaultFolderId:
+                      type: integer
+                    defaultVisibility:
+                      type: string
+                      enum:
+                        - public
+                        - protected
+                        - private
+          application/x-www-form-urlencoded:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/User'
+                - type: object
+                  properties:
+                    user_pass:
+                      type: string
+                    defaultFolderId:
+                      type: integer
+                    defaultVisibility:
+                      type: string
+                      enum:
+                        - public
+                        - protected
+                        - private
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '400':
+          description: Missing or wrong parameters in request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '403':
+          description: The session owner is not an admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: UserId doesn't exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        
+        default:
+            $ref: '#/components/responses/defaultResponse'
     delete:
       operationId: deleteUserById
       tags:
@@ -708,9 +969,85 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/User'      
         default:
           $ref: '#/components/responses/defaultResponse'
+  /users/tokens:
+    post:
+      operationId: createRestApiToken
+      tags:
+        - User
+        - Admin
+      summary: Create a new REST API Token
+      description: >
+        Create a new REST API Token
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '201':
+          description: Token created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Info'
+                  - type: object
+                    properties:
+                      token:
+                        type: string
+                        example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NTgwODI1OTksIm5iZiI6MTY1NzkwOTgwMCwianRpIjoiTXk0eiIsInNjb3BlIjoid3JpdGUifQ.Sl1acvN0GlCe7VUZJQX00u_vpfWrtfJlVYQ63FBkzP4
+        '400':
+          description: Following parameters are required in the request body -- token_name,token_scope,token_expire
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        
+        default:
+            $ref: '#/components/responses/defaultResponse'
+  /users/tokens/{type}:
+    parameters:
+      - name: type
+        required: true
+        in: path
+        schema:
+          type: string
+          enum:
+          - active
+          - expired
+    get:
+      operationId: getTokensByType
+      tags:
+        - User
+        - Admin
+      summary: Get all the REST API tokens (active | expired)
+      description: >
+        Get all the REST API tokens (active | expired)
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Info'
+                  - type: object
+                    properties:
+                      active_tokens:
+                        $ref: '#/components/schemas/Token'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        
+        default:
+            $ref: '#/components/responses/defaultResponse'
   /jobs:
     parameters:
       - name: groupName
@@ -724,8 +1061,8 @@ paths:
       operationId: getJobs
       tags:
       - Job
-      summary: Gets all jobs
-      description: Returns all jobs with their status
+      summary: Gets all jobs created by the logged in user
+      description: Returns all jobs with their status created by the logged in user
       parameters:
         - name: limit
           required: false
@@ -795,6 +1132,51 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
           $ref: '#/components/responses/defaultResponse'
+  
+  /jobs/all:
+    get:
+      operationId: getAllJobs
+      tags:
+      - Job
+      summary: Gets all jobs created by all users
+      description: Returns all jobs with their status created by every user. This API returns a response only if the requesting user is an Admin.
+      parameters:
+        - name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          in: header
+        - name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          in: header
+      responses:
+        '200':
+          description: OK
+          headers:
+            X-Total-Pages:
+              description: Total number of pages which can be generated based on limit
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Job'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+
+        
+        default:
+          $ref: '#/components/responses/defaultResponse'    
   /jobs/{id}:
     parameters:
       - name: id
@@ -1058,7 +1440,97 @@ paths:
                 $ref: '#/components/schemas/Info'
         default:
             $ref: '#/components/responses/defaultResponse'
-
+  /groups/{id}:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the group
+        in: path
+        schema:
+          type: integer
+    delete:
+      operationId: deleteGroupById
+      tags:
+        - Groups
+      summary: Delete group by id
+      description: >
+        Deletes a single group by id.
+      responses:
+        '202':
+          description: User group will be deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+  /groups/{id}/user/{uid}:
+    parameters:
+      - name: id
+        required: true
+        description: Id of the group
+        in: path
+        schema:
+          type: integer
+      - name: uid
+        required: true
+        description: user id of the member
+        in: path
+        schema:
+          type: integer
+    delete:
+      operationId: deleteGroupMemberByGroupIdAndUserId
+      tags:
+        - Groups
+      summary: Delete group member by groupId and userId
+      description: >
+        Deletes a single group member by groupId and userId
+      responses:
+        '200':
+          description: User will be removed from group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '404':
+          description: Not found Error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '400':
+          description: Validation based error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        '500':
+          description:  Internal server error with details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Info'
+        default:
+          $ref: '#/components/responses/defaultResponse'
+  /groups/deletable:
+    get:
+      operationId: deletableGroups
+      tags:
+        - Groups
+      summary: Give a list of deletable groups
+      description: >
+        Return a list of the groups which it is possible to delete.
+      responses:
+        '200':
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+        default:
+          $ref: '#/components/responses/defaultResponse'
   /report:
     get:
       operationId: getReportsByUpload
@@ -1087,6 +1559,7 @@ paths:
               - spdx2tv
               - readmeoss
               - unifiedreport
+              - clixml
         - name: groupName
           description: The group name to chose while generating a report
           in: header
@@ -1134,7 +1607,11 @@ paths:
               schema:
                 type: string
                 format: binary
-            application/zip:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/xml:
               schema:
                 type: string
                 format: binary
@@ -1409,6 +1886,14 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: "Token from FOSSology"
+    oauth:
+      description: "Machine-2-Machine communication from oauth"
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: "https://api.example.com/oauth2/authorize"
+          scopes: {}
   schemas:
     SearchResults:
       type: object
@@ -1445,6 +1930,8 @@ components:
           $ref: '#/components/schemas/LicenseDecider'
         reuse:
           $ref: '#/components/schemas/Reuser'
+        scancode:
+          $ref: '#/components/schemas/Scancode'
     Upload:
       type: object
       properties:
@@ -1565,6 +2052,35 @@ components:
             - INFO
             - ERROR
           description: Denotes if info was created on error
+    Token:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Token Id
+        token_name:
+          type: string
+          description: Name of the Token
+        created:
+          type: string
+          format: date
+          description: Denotes when the token was created
+          example: 2022-07-11
+        token_expire:
+          type: string
+          format: date
+          description: Denotes when the token was created
+          example: 2022-07-11
+        scope:
+          type: string
+          enum:
+          - read
+          - write
+          description: Scope of the token
+        token:
+          type: string
+          description: Scope of the token
+          example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NTg5NDY1OTksIm5iZiI6MTY1NzkwOTgwMCwianRpIjoiTnk0eiIsInNjb3BlIjoid3JpdGUifQ.Yqwdt7Fzx-Qw3megYix_OYu1mqBOoz4Rrc1cgJasmJA
     User:
       type: object
       properties:
@@ -1586,6 +2102,7 @@ components:
             - none
             - read_only
             - read_write
+            - clearing_admin
             - admin
         rootFolderId:
           type: number
@@ -1594,12 +2111,17 @@ components:
         emailNotification:
           type: boolean
           description: enable email notification when upload scan completes
+        defaultGroup:
+          type: integer
+          description: Default group id of the user
         agents:
           $ref: '#/components/schemas/Analysis'
+        defaultBucketpool:
+          description: Default bucket pool id
+          type: integer
+          nullable: true
       required:
         - id
-        - name
-        - description
     Analysis:
       type: object
       properties:
@@ -1633,6 +2155,9 @@ components:
         reso:
           type: boolean
           description: Should REUSE.Software Analysis be run on this upload.
+        heritage:
+          type: boolean
+          description: Should Software Heritage Analysis be run on this upload.
     Reuser:
       type: object
       properties:
@@ -1655,8 +2180,23 @@ components:
           type: boolean
           description: Copy the copyright deactivation and edits.
       required:
-        - reuse_uplod
+        - reuse_upload
         - reuse_group
+    Scancode:
+      type: object
+      properties:
+        license:
+          type: boolean
+          description: A full comparison between the database of licenses present in ScanCode and the code uploaded by users based approach. 
+        copyright:
+          type: boolean
+          description: Copyright along with copyright holder/author information.
+        email:
+          type: boolean
+          description: Email(s) present in the scan code file.
+        url:
+          type: boolean
+          description: URL(s) present in the scan code file.
     Folder:
       type: object
       properties:
@@ -1675,13 +2215,6 @@ components:
     TokenRequest:
       type: object
       properties:
-        username:
-          type: string
-          description: Username of the login user.
-        password:
-          type: string
-          format: password
-          description: Password of the user trying to login.
         token_name:
           type: string
           maxLength: 40
@@ -1741,6 +2274,21 @@ components:
             example: "path/to/LICENSE"
           findings:
             $ref: '#/components/schemas/Findings'
+    UploadCopyrights:
+      type: array
+      items:
+        type: object
+        properties:
+          copyright:
+            description: Copyright Information
+            type: string
+            example: "Copyright (C) 2017-2020 Free Software Foundation, Inc."
+          filePath:
+            description: Path of the files for which the copyright information is provided
+            type: array
+            example: 
+            - "path/to/file1"
+            - "path/to/file2"
     UrlUpload:
       description: To create an upload from a URL
       type: object
@@ -1978,7 +2526,38 @@ components:
               type: string
               description: Link to license
           description: Licensing of API
-    HeathInfo:
+        fossology:
+          type: object
+          description: Information about FOSSology server. Values can be null.
+          properties:
+            version:
+              type: string
+              description: Version of the FOSSology server
+              nullable: true
+              example: "4.0.0"
+            branchName:
+              type: string
+              description: Branch deployed on the FOSSology server
+              nullable: true
+              example: master
+            commitHash:
+              type: string
+              description: Hash of commit deployed on the FOSSology server
+              nullable: true
+              example: "306260"
+            commitDate:
+              type: string
+              description: |
+                Date of commit deployed on the FOSSology server in
+                ISO8601 format
+              nullable: true
+              example: "2022-01-05T22:03:00+05:30"
+            buildDate:
+              type: string
+              description: Date on which packages were built in ISO8601 format
+              nullable: true
+              example: "2022-01-07T11:13:00+05:30"
+    HealthInfo:
       description: Health status of server
       type: object
       properties:

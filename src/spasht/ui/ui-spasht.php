@@ -1,4 +1,10 @@
 <?php
+/*
+ SPDX-FileCopyrightText: © 2019 Vivek Kumar <vvksindia@gmail.com>
+ Author: Vivek Kumar<vvksindia@gmail.com>
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Dao\UploadDao;
@@ -297,6 +303,22 @@ class ui_spasht extends FO_Plugin
     $this->vars['tables'] = [$table];
 
     $advanceSearchFormStatus = "hidden";
+    if (empty(trim(GetParm("advanceSearchFormStatus", PARM_STRING)))) {
+      // First load
+      /**
+       * @var Coordinate $coord
+       * Coordinate from component ID (can be null)
+       */
+      $coord = $this->spashtDao->getCoordinateFromCompId($uploadId);
+      if ($coord != null) {
+        $upload_name = $coord->getName();
+        $revisionName = $coord->getRevision();
+        $namespaceName = $coord->getNamespace();
+        $typeName = $coord->getType();
+        $providerName = $coord->getProvider();
+        $advanceSearchFormStatus = "show";
+      }
+    }
     $this->vars['uploadName']    = $upload_name;
     $this->vars['revisionName']  = $revisionName;
     $this->vars['namespaceName'] = $namespaceName;

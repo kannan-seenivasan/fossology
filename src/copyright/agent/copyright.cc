@@ -1,19 +1,8 @@
 /*
-Author: Daniele Fognini, Andreas Wuerl, Johannes Najjar
-Copyright (C) 2014, Siemens AG
+ SPDX-FileCopyrightText: © 2014 Siemens AG
+ Author: Daniele Fognini, Andreas Wuerl, Johannes Najjar
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License version 2
-as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software Foundation,
-Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 /**
  * \file copyright.cc
@@ -78,13 +67,13 @@ int main(int argc, char** argv)
 
   bool json = cliOptions.doJsonOutput();
   bool ignoreFilesWithMimeType = cliOptions.doignoreFilesWithMimeType();
-  CopyrightState state = getState(std::move(cliOptions));
 
   if (!fileNames.empty())
   {
     const unsigned long fileNamesCount = fileNames.size();
     bool fileError = false;
     bool printComma = false;
+    CopyrightState state = getState(std::move(cliOptions));
 
     if (json)
     {
@@ -120,12 +109,14 @@ int main(int argc, char** argv)
   }
   else if (directoryToScan.length() > 0)
   {
+    CopyrightState state = getState(std::move(cliOptions));
     scanDirectory(state, json, directoryToScan);
   }
   else
   {
     DbManager dbManager(&argc, argv);
     int agentId = queryAgentId(dbManager.getConnection());
+    CopyrightState state = getState(std::move(cliOptions));
 
     CopyrightDatabaseHandler copyrightDatabaseHandler(dbManager);
     if (!copyrightDatabaseHandler.createTables())

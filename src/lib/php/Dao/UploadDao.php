@@ -1,20 +1,9 @@
 <?php
 /*
-Copyright (C) 2014-2018, Siemens AG
-Authors: Andreas Würl, Steffen Weber
+ SPDX-FileCopyrightText: © 2014-2018 Siemens AG
+ Authors: Andreas Würl, Steffen Weber
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 namespace Fossology\Lib\Dao;
@@ -444,7 +433,8 @@ class UploadDao
   /**
    * @param int $uploadId
    * @param int $groupId
-   * @return int
+   * @return array Assoc array of reused_upload_fk, reused_group_fk and
+   *               reuse_mode
    */
   public function getReusedUpload($uploadId, $groupId)
   {
@@ -653,7 +643,7 @@ ORDER BY lft asc
   private function addToPFilePerFileName(&$pfilePerFileName, $pathStack, $row)
   {
     if (($row['ufile_mode'] & (1 << 29)) == 0) {
-      $path = implode($pathStack,'/');
+      $path = implode('/', $pathStack);
       $pfilePerFileName[$path]['pfile_pk'] = $row['pfile_pk'];
       $pfilePerFileName[$path]['uploadtree_pk'] = $row['uploadtree_pk'];
       $pfilePerFileName[$path]['md5'] = $row['pfile_md5'];
@@ -726,6 +716,32 @@ ORDER BY lft asc
     }
     return $row;
   }
+  /* @param int $uploadId
+   * @return ri_globaldecision
+   */
+  public function getGlobalDecisionSettingsFromInfo($uploadId, $setGlobal=null)
+  {
+    $stmt = __METHOD__ . 'get';
+    $sql = "SELECT ri_globaldecision FROM report_info WHERE upload_fk = $1";
+    $row = $this->dbManager->getSingleRow($sql, array($uploadId), $stmt);
+    if (empty($row)) {
+      if ($setGlobal === null) {
+        // Old upload, set default value to enable
+        $setGlobal = 1;
+      }
+      $stmt = __METHOD__ . 'ifempty';
+      $sql = "INSERT INTO report_info (upload_fk, ri_globaldecision) VALUES ($1, $2) RETURNING ri_globaldecision";
+      $row = $this->dbManager->getSingleRow($sql, array($uploadId, $setGlobal), $stmt);
+    }
+
+    if (!empty($setGlobal)) {
+      $stmt = __METHOD__ . 'update';
+      $sql = "UPDATE report_info SET ri_globaldecision = $2 WHERE upload_fk = $1 RETURNING ri_globaldecision";
+      $row = $this->dbManager->getSingleRow($sql, array($uploadId, $setGlobal), $stmt);
+    }
+
+    return $row['ri_globaldecision'];
+  }
 
   /**
    * @brief Get Pfile hashes from the pfile id
@@ -748,28 +764,40 @@ ORDER BY lft asc
    */
   public function insertReportConfReuse($uploadId, $reusedUploadId)
   {
-    $stmt = __METHOD__;
-    $sql = "SELECT exists(SELECT 1 FROM report_info WHERE upload_fk = $1 LIMIT 1)::int";
+    $stmt = __METHOD__ . ".checkReused";
+    $sql = "SELECT 1 AS exists FROM report_info WHERE upload_fk = $1 LIMIT 1;";
     $row = $this->dbManager->getSingleRow($sql, array($reusedUploadId), $stmt);
 
-    if ($row['exists']) {
-      $stmt = __METHOD__."CopyinsertReportConfReuse";
-      $this->dbManager->prepare($stmt,
-        "INSERT INTO report_info(
-           upload_fk, ri_ga_checkbox_selection, ri_spdx_selection,
-           ri_excluded_obligations, ri_reviewed, ri_footer, ri_report_rel,
-           ri_community, ri_component, ri_version, ri_release_date,
-           ri_sw360_link, ri_general_assesment, ri_ga_additional, ri_ga_risk)
-        SELECT $1, ri_ga_checkbox_selection, ri_spdx_selection,
-           ri_excluded_obligations, ri_reviewed, ri_footer, ri_report_rel,
-           ri_community, ri_component, ri_version, ri_release_date,
-           ri_sw360_link, ri_general_assesment, ri_ga_additional, ri_ga_risk
-           FROM report_info WHERE upload_fk = $2"
-      );
-      $this->dbManager->freeResult($this->dbManager->execute($stmt, array($uploadId, $reusedUploadId)));
-      return true;
+    if (empty($row['exists'])) {
+      return false;
     }
-    return false;
+
+    $this->dbManager->begin();
+
+    $stmt = __METHOD__ . ".removeExists";
+    $sql = "DELETE FROM report_info WHERE upload_fk = $1;";
+    $this->dbManager->getSingleRow($sql, [$uploadId], $stmt);
+
+    $stmt = __METHOD__ . ".getAllColumns";
+    $sql = "SELECT string_agg(column_name, ',') AS columns
+      FROM information_schema.columns
+      WHERE table_name = 'report_info'
+        AND column_name != 'ri_pk'
+        AND column_name != 'upload_fk';";
+    $row = $this->dbManager->getSingleRow($sql, [], $stmt);
+    $columns = $row['columns'];
+
+    $stmt = __METHOD__."CopyinsertReportConfReuse";
+    $this->dbManager->prepare($stmt,
+      "INSERT INTO report_info(upload_fk, $columns)
+      SELECT $1, $columns
+      FROM report_info WHERE upload_fk = $2"
+    );
+    $this->dbManager->freeResult($this->dbManager->execute(
+      $stmt, array($uploadId, $reusedUploadId)
+    ));
+
+    $this->dbManager->commit();
+    return true;
   }
 }
-

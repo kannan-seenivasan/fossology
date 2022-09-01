@@ -1,20 +1,9 @@
 <?php
-/***************************************************************
-Copyright (C) 2017 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2017 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * @file
@@ -291,6 +280,47 @@ class RestHelper
       $requestValid = new Info(400,
         "The token name must be a valid string of max 40 character length",
         InfoType::ERROR);
+    }
+    return $requestValid;
+  }
+
+  /**
+   * @brief Check if the new oauth client is valid.
+   *
+   * The function checks for following properties:
+   * - The length of client name should be between 0 and 40.
+   * - The scope of client should be valid.
+   * - Same client should not exist for the user.
+   *
+   * @param integer $userId     User id
+   * @param string $clientName  The name of the new client.
+   * @param string $clientScope The scope of the new client.
+   * @param string $clientId    New client id.
+   * @return boolean|Fossology::UI::Api::Models::Info True if all parameters
+   *         are ok, else an info.
+   */
+  public function validateNewOauthClient($userId, $clientName, $clientScope,
+                                        $clientId)
+  {
+    $requestValid = true;
+    if (!in_array($clientScope, RestHelper::SCOPE_DB_MAP)) {
+      $requestValid = new Info(400, "Invalid client scope, allowed only " .
+          join(",", RestHelper::VALID_SCOPES), InfoType::ERROR);
+    } elseif (empty($clientName) || strlen($clientName) > 40) {
+      $requestValid = new Info(400,
+        "The client name must be a valid string of max 40 character length.",
+        InfoType::ERROR);
+    } else {
+      $sql = "SELECT 1 FROM personal_access_tokens " .
+        "WHERE user_fk = $1 AND client_id = $2;";
+      $rows = $this->dbHelper->getDbManager()->getSingleRow($sql, [
+        $userId,
+        $clientId
+      ], __METHOD__);
+      if (!empty($rows)) {
+        $requestValid = new Info(400, "Client already added for the user.",
+          InfoType::ERROR);
+      }
     }
     return $requestValid;
   }

@@ -1,19 +1,8 @@
-/*********************************************************************
-Copyright (C) 2014-2015, 2018 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2014-15, 2018 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*********************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 #include <cppunit/TestFixture.h>
 #include <cppunit/extensions/HelperMacros.h>
@@ -63,7 +52,8 @@ const char testContent[] = "© 2007 Hugh Jackman\n\n"
   "maintained by benjamin drieu <benj@debian.org>\n\n"
   "* Copyright (c) 1989, 1993\n" // Really just one newline here!
   "* The Regents of the University of California. All rights reserved.\n\n"
-  "to be licensed as a whole";
+  "to be licensed as a whole"
+  "/* Most of the following tests are stolen from RCS 5.7's src/conf.sh.  */";
 
 class scannerTestSuite : public CPPUNIT_NS :: TestFixture {
   CPPUNIT_TEST_SUITE (scannerTestSuite);
@@ -191,7 +181,7 @@ protected:
    */
   void regKeywordTest () {
     regexScanner sc("keyword", "keyword");
-    scannerTest(sc, testContent, "keyword", {"patent", "licensed as"});
+    scannerTest(sc, testContent, "keyword", {"patent", "licensed as", "stolen from"});
   }
 
   /**

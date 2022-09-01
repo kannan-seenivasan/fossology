@@ -1,22 +1,10 @@
 <?php
-/***********************************************************
-Copyright (C) 2010-2014 Hewlett-Packard Development Company, L.P.
-Copyright (C) 2015-2017 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2010-2014 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2015-2017 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
-
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * \brief Given a filename, return all uploadtree.
@@ -24,6 +12,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
  * @param $Filename string - filename or pattern to search for, false if unused
  * @param $tag      string - tag (or tag pattern mytag%) to search for, false if unused
  * @param $Page     int - display page number
+ * @param $Limit    int - size of the page
  * @param $SizeMin  int - Minimum file size, -1 if unused
  * @param $SizeMax  int - Maximum file size, -1 if unused
  * @param $searchtype "containers", "directory" or "allfiles"
@@ -36,10 +25,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
  *         contains uploadtree_pk, parent, upload_fk, pfile_fk, ufile_mode, and
  *         ufile_name
  */
-function GetResults($Item, $Filename, $Upload, $tag, $Page, $SizeMin, $SizeMax, $searchtype,
+function GetResults($Item, $Filename, $Upload, $tag, $Page, $Limit, $SizeMin, $SizeMax, $searchtype,
                     $License, $Copyright, $uploadDao, $groupID, $PG_CONN)
 {
-  $MaxPerPage  = 100;  /* maximum number of result items per page */
   $UploadtreeRecs = array();  // uploadtree record array to return
   $totalUploadtreeRecs = array();  // total uploadtree record array
   $totalUploadtreeRecsCount = 0; // total uploadtree records count to return
@@ -235,7 +223,7 @@ function GetResults($Item, $Filename, $Upload, $tag, $Page, $SizeMin, $SizeMax, 
     }
   }
 
-  $Offset = $Page * $MaxPerPage;
+  $Offset = $Page * $Limit;
   $SQL .= " ORDER BY ufile_name, uploadtree.pfile_fk";
   $result = pg_query($PG_CONN, $SQL);
   DBCheckResult($result, $SQL, __FILE__, __LINE__);
@@ -248,7 +236,7 @@ function GetResults($Item, $Filename, $Upload, $tag, $Page, $SizeMin, $SizeMax, 
     }
   }
   pg_free_result($result);
-  $UploadtreeRecs = array_slice($totalUploadtreeRecs, $Offset, $MaxPerPage);
+  $UploadtreeRecs = array_slice($totalUploadtreeRecs, $Offset, $Limit);
   $totalUploadtreeRecsCount = sizeof($totalUploadtreeRecs);
   return array($UploadtreeRecs, $totalUploadtreeRecsCount);
 } // GetResults()

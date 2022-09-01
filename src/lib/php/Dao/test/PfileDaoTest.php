@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- Copyright (C) 2020 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2020 Siemens AG
  Author: Gaurav Mishra <mishra.gaurav@siemens.com>
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 namespace Fossology\Lib\Dao;
 
@@ -56,7 +45,7 @@ class PfileDaoTest extends \PHPUnit\Framework\TestCase
    * Setup test DB and other objects
    * @see PHPUnit::Framework::TestCase::setUp()
    */
-  protected function setUp()
+  protected function setUp() : void
   {
     $this->testDb = new TestPgDb("pfiledao");
     $this->dbManager = $this->testDb->getDbManager();
@@ -69,7 +58,7 @@ class PfileDaoTest extends \PHPUnit\Framework\TestCase
    * Tear down test DB and objects
    * @see PHPUnit::Framework::TestCase::tearDown()
    */
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->addToAssertionCount(\Hamcrest\MatcherAssert::getCount() -
       $this->assertCountBefore);

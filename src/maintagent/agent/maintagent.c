@@ -1,21 +1,9 @@
-/***************************************************************
- Copyright (C) 2013 Hewlett-Packard Development Company, L.P.
- Copyright (C) 2014,2019 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2013 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2014, 2019 Siemens AG
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  \file maintagent.c
  \brief FOSSology maintenance agent
@@ -37,8 +25,11 @@
  -p|Verify file permissions (report only)
  -P|Verify and fix file permissions|
  -R|Remove uploads with no pfiles|
+ -t #|Remove personal access tokens expired # days ago.|
  -T|Remove orphaned temp tables|
  -L|Remove orphaned log files from file systems|
+ -o <yyyy-mm-dd>|Remove gold files older than given date (slow)|
+ -l #|Remove log files older than given date|
  -U|Process expired uploads (slow)|
  -Z|Remove orphaned files from the repository (slow)|
  -i|Initialize the database, then exit|
@@ -100,9 +91,13 @@ int main(int argc, char **argv)
   int removeOrphanedLogs = 0;
   int removeExpiredTokensExe = 0;
   int tokenRetentionPeriod = 30;
+  int removeOldGoldExe = 0;
+  int removeOldLogsExe = 0;
+  char goldOlder[11];
+  char oldLogsDate[11] = {};
 
   /* command line options */
-  while ((cmdopt = getopt(argc, argv, "aAc:DEFghiILNpPRt:TUvVZ")) != -1)
+  while ((cmdopt = getopt(argc, argv, "aAc:DEFghiIl:LNo:pPRt:TUvVZ")) != -1)
   {
     switch (cmdopt)
     {
@@ -227,6 +222,14 @@ int main(int argc, char **argv)
           normalizeUploadPrioritiesExe = 1;
         }
         break;
+      case 'o': /* Gold files older than given date */
+        if (removeOldGoldExe == 0)
+        {
+          strncpy(goldOlder, optarg, 10);
+          deleteOldGold(goldOlder);
+          removeOldGoldExe = 1;
+        }
+        break;
       case 'p': /* Verify file permissions */
         verifyFilePerms(0);
         break;
@@ -251,7 +254,7 @@ int main(int argc, char **argv)
           removeExpiredTokens(tokenRetentionPeriod);
           removeExpiredTokensExe = 1;
         }
-        break;      
+        break;
       case 'T': /* Remove orphaned temp tables */
         if (removeTempsExe == 0)
         {
@@ -285,6 +288,14 @@ int main(int argc, char **argv)
         {
           removeOrphanedRows();
           removeOrphanedRowsExe = 1;
+        }
+        break;
+      case 'l': /* Remove old log files */
+        if (removeOldLogsExe == 0)
+        {
+          strncpy(oldLogsDate, optarg, 10);
+          removeOldLogFiles(oldLogsDate);
+          removeOldLogsExe = 1;
         }
         break;
       case 'L': /* Remove orphaned log files from file system */

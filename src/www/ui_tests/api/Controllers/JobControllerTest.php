@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- * Copyright (C) 2020 Siemens AG
- * Author: Gaurav Mishra <mishra.gaurav@siemens.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+/*
+ SPDX-FileCopyrightText: © 2020 Siemens AG
+ Author: Gaurav Mishra <mishra.gaurav@siemens.com>
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Unit tests for JobController
@@ -25,16 +14,17 @@ namespace Fossology\UI\Api\Test\Controllers;
 
 use Mockery as M;
 use Fossology\UI\Api\Controllers\JobController;
-use Slim\Http\Headers;
-use Slim\Http\Body;
-use Slim\Http\Request;
-use Slim\Http\Response;
 use Fossology\UI\Api\Models\Job;
-use Slim\Http\Uri;
 use Fossology\Lib\Dao\JobDao;
 use Fossology\Lib\Dao\ShowJobsDao;
 use Fossology\UI\Api\Models\Info;
+use Fossology\UI\Api\Models\User;
 use Fossology\UI\Api\Models\InfoType;
+use Fossology\UI\Api\Helper\ResponseHelper;
+use Slim\Psr7\Request;
+use Slim\Psr7\Factory\StreamFactory;
+use Slim\Psr7\Uri;
+use Slim\Psr7\Headers;
 
 /**
  * @class JobControllerTest
@@ -79,10 +69,16 @@ class JobControllerTest extends \PHPUnit\Framework\TestCase
   private $assertCountBefore;
 
   /**
+   * @var StreamFactory $streamFactory
+   * Stream factory to create body streams.
+   */
+  private $streamFactory;
+
+  /**
    * @brief Setup test objects
    * @see PHPUnit_Framework_TestCase::setUp()
    */
-  protected function setUp()
+  protected function setUp() : void
   {
     global $container;
     $container = M::mock('ContainerBuilder');
@@ -99,13 +95,14 @@ class JobControllerTest extends \PHPUnit\Framework\TestCase
       'helper.restHelper'))->andReturn($this->restHelper);
     $this->jobController = new JobController($container);
     $this->assertCountBefore = \Hamcrest\MatcherAssert::getCount();
+    $this->streamFactory = new StreamFactory();
   }
 
   /**
    * @brief Remove test objects
    * @see PHPUnit_Framework_TestCase::tearDown()
    */
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->addToAssertionCount(
       \Hamcrest\MatcherAssert::getCount() - $this->assertCountBefore);
@@ -126,15 +123,38 @@ class JobControllerTest extends \PHPUnit\Framework\TestCase
   }
 
   /**
+   * Generate array of users
+   * @param array $userIds User ids to be generated
+   * @return array[]
+   */
+  private function getUsers($userIds)
+  {
+    $userArray = array();
+    foreach ($userIds as $userId) {
+      if ($userId == 2) {
+        $accessLevel = PLUGIN_DB_ADMIN;
+      } elseif ($userId > 2 && $userId <= 4) {
+        $accessLevel = PLUGIN_DB_WRITE;
+      } elseif ($userId == 5) {
+        $accessLevel = PLUGIN_DB_READ;
+      } else {
+        continue;
+      }
+      $user = new User($userId, "user$userId", "User $userId",
+        "user$userId@example.com", $accessLevel, 2, 4, "");
+      $userArray[] = $user->getArray();
+    }
+    return $userArray;
+  }
+
+  /**
    * @test
    * -# Test JobController::getJobs() for all jobs
    * -# Check if response is 200
    */
   public function testGetJobs()
   {
-    $job = new Job(11, "job_name", "01-01-2020", 4, 2, 2, 0, "Completed");
-    $this->dbHelper->shouldReceive('getJobs')->withArgs(array(null, 0, 1))
-      ->andReturn([[$job], 1]);
+    $job = new Job(11, "job_name", "01-01-2020", 4, 2, 2, 0, "Completed");    
     $this->jobDao->shouldReceive('getAllJobStatus')->withArgs(array(4, 2, 2))
       ->andReturn(['11' => 0]);
     $this->showJobsDao->shouldReceive('getEstimatedTime')
@@ -143,10 +163,15 @@ class JobControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs(array(11))->andReturn(["jq_endtext"=>'Completed']);
 
     $requestHeaders = new Headers();
-    $body = new Body(fopen('php://temp', 'r+'));
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost"),
       $requestHeaders, [], [], $body);
-    $response = new Response();
+    $response = new ResponseHelper();
+    $userId = 2;
+    $user = $this->getUsers([$userId]);
+    $this->restHelper->shouldReceive('getUserId')->andReturn($userId);
+    $this->dbHelper->shouldReceive('getUserJobs')->withArgs(array(null, 2, 0, 1))
+      ->andReturn([[$job], 1]);
     $actualResponse = $this->jobController->getJobs($request, $response, []);
     $expectedResponse = $job->getArray();
     $this->assertEquals(200, $actualResponse->getStatusCode());
@@ -163,9 +188,7 @@ class JobControllerTest extends \PHPUnit\Framework\TestCase
    */
   public function testGetJobsLimitPage()
   {
-    $jobTwo = new Job(12, "job_two", "01-01-2020", 5, 2, 2, 0, "Completed");
-    $this->dbHelper->shouldReceive('getJobs')->withArgs(array(null, 1, 2))
-      ->andReturn([[$jobTwo], 2]);
+    $jobTwo = new Job(12, "job_two", "01-01-2020", 5, 2, 2, 0, "Completed");   
     $this->jobDao->shouldReceive('getAllJobStatus')->withArgs(array(4, 2, 2))
       ->andReturn(['11' => 0]);
     $this->jobDao->shouldReceive('getAllJobStatus')->withArgs(array(5, 2, 2))
@@ -176,12 +199,17 @@ class JobControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs([M::anyOf(11, 12)])->andReturn(["jq_endtext"=>'Completed']);
 
     $requestHeaders = new Headers();
-    $requestHeaders->set('limit', '1');
-    $requestHeaders->set('page', '2');
-    $body = new Body(fopen('php://temp', 'r+'));
+    $requestHeaders->setHeader('limit', '1');
+    $requestHeaders->setHeader('page', '2');
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost"),
       $requestHeaders, [], [], $body);
-    $response = new Response();
+    $response = new ResponseHelper();
+    $userId = 2;
+    $user = $this->getUsers([$userId]);
+    $this->restHelper->shouldReceive('getUserId')->andReturn($userId);
+    $this->dbHelper->shouldReceive('getUserJobs')->withArgs(array(null, 2, 1, 2))
+    ->andReturn([[$jobTwo], 2]);
     $actualResponse = $this->jobController->getJobs($request, $response, []);
     $expectedResponse = $jobTwo->getArray();
     $this->assertEquals(200, $actualResponse->getStatusCode());
@@ -202,12 +230,15 @@ class JobControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs(["job", "job_pk", 2])->andReturn(false);
 
     $requestHeaders = new Headers();
-    $requestHeaders->set('limit', '1');
-    $requestHeaders->set('page', '2');
-    $body = new Body(fopen('php://temp', 'r+'));
+    $requestHeaders->setHeader('limit', '1');
+    $requestHeaders->setHeader('page', '2');
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost"),
       $requestHeaders, [], [], $body);
-    $response = new Response();
+    $response = new ResponseHelper();
+    $userId = 2;
+    $user = $this->getUsers([$userId]);
+    $this->restHelper->shouldReceive('getUserId')->andReturn($userId);
     $actualResponse = $this->jobController->getJobs($request, $response, [
       "id" => 2]);
     $expectedResponse = new Info(404, "Job id 2 doesn't exist", InfoType::ERROR);
@@ -237,10 +268,13 @@ class JobControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs([12])->andReturn(["jq_endtext"=>'Completed']);
 
     $requestHeaders = new Headers();
-    $body = new Body(fopen('php://temp', 'r+'));
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost"),
       $requestHeaders, [], [], $body);
-    $response = new Response();
+    $response = new ResponseHelper();
+    $userId = 2;
+    $user = $this->getUsers([$userId]);
+    $this->restHelper->shouldReceive('getUserId')->andReturn($userId);
     $actualResponse = $this->jobController->getJobs($request, $response, [
       "id" => 12]);
     $expectedResponse = $job->getArray();
@@ -273,11 +307,14 @@ class JobControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs([12])->andReturn(["jq_endtext"=>'Completed']);
 
     $requestHeaders = new Headers();
-    $body = new Body(fopen('php://temp', 'r+'));
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost"),
       $requestHeaders, [], [], $body);
     $request = $request->withQueryParams([JobController::UPLOAD_PARAM => 5]);
-    $response = new Response();
+    $response = new ResponseHelper();
+    $userId = 2;
+    $user = $this->getUsers([$userId]);
+    $this->restHelper->shouldReceive('getUserId')->andReturn($userId);
     $actualResponse = $this->jobController->getJobs($request, $response, []);
     $expectedResponse = $job->getArray();
     $this->assertEquals(200, $actualResponse->getStatusCode());

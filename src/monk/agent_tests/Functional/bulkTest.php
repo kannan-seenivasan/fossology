@@ -1,19 +1,8 @@
 <?php
 /*
-Copyright (C) 2014-2015, Siemens AG
+ SPDX-FileCopyrightText: © 2014-2015 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 use Fossology\Lib\Dao\ClearingDao;
@@ -45,7 +34,7 @@ class MonkBulkTest extends \PHPUnit\Framework\TestCase
   /** @var HighlightDao */
   private $highlightDao;
 
-  protected function setUp()
+  protected function setUp() : void
   {
     $this->testDb = new TestPgDb("monkBulk");
     $this->dbManager = $this->testDb->getDbManager();
@@ -58,7 +47,7 @@ class MonkBulkTest extends \PHPUnit\Framework\TestCase
     $this->clearingDao = new ClearingDao($this->dbManager, $this->uploadDao);
   }
 
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->testDb->fullDestruct();
     $this->testDb = null;
@@ -117,7 +106,7 @@ class MonkBulkTest extends \PHPUnit\Framework\TestCase
   private function setUpTables()
   {
     $this->testDb->createPlainTables(array('upload','uploadtree','license_ref','license_ref_bulk', 'license_set_bulk',
-        'clearing_event','clearing_decision','clearing_decision_event','license_file','highlight','highlight_bulk','agent','pfile','ars_master','users'),false);
+        'clearing_event','clearing_decision','report_info','clearing_decision_event','license_file','highlight','highlight_bulk','agent','pfile','ars_master','users'),false);
     $this->testDb->createSequences(array('agent_agent_pk_seq','pfile_pfile_pk_seq','upload_upload_pk_seq','nomos_ars_ars_pk_seq','license_file_fl_pk_seq','license_ref_rf_pk_seq','license_ref_bulk_lrb_pk_seq','clearing_event_clearing_event_pk_seq'),false);
     $this->testDb->createViews(array('license_file_ref'),false);
     $this->testDb->createConstraints(array('agent_pkey','pfile_pkey','upload_pkey_idx','FileLicense_pkey','clearing_event_pkey', 'license_ref_bulk_pkey', 'license_set_bulk_fkey'),false);
@@ -136,15 +125,6 @@ class MonkBulkTest extends \PHPUnit\Framework\TestCase
     else {
       return 0;
     }
-  }
-
-  /** @group Functional */
-  public function testDatabaseSetup()
-  {
-    $this->setUpTables();
-    $this->setUpRepo();
-
-    $this->rmRepo();
   }
 
   /** @group Functional */

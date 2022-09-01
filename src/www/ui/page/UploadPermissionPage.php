@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- Copyright (C) 2013 Hewlett-Packard Development Company, L.P.
- Copyright (C) 2015,2020, Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2013 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2015, 2020 Siemens AG
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Dao\FolderDao;
@@ -75,6 +64,13 @@ class UploadPermissionPage extends DefaultPlugin
     $newgroup = intval($request->get('newgroup'));
     $newperm = intval($request->get('newperm'));
     $public_perm = $request->get('public', -1);
+    $commu_status = fo_communicate_with_scheduler('status', $response_from_scheduler, $error_info);
+    if ($commu_status) {
+      $response_from_scheduler = "";
+    } else {
+      $response_from_scheduler = "Error: Scheduler is not running!";
+      $error_info = null;
+    }
 
     $root_folder_pk = $this->folderDao->getRootFolder(Auth::getUserId())->getId();
     if (empty($folder_pk)) {
@@ -89,7 +85,9 @@ class UploadPermissionPage extends DefaultPlugin
       if (!empty($perm_upload_pk)) {
         $this->uploadPermDao->updatePermissionId($perm_upload_pk, $perm);
       } else if (!empty($newgroup) && !empty($newperm)) {
-        $this->insertPermission($newgroup,$upload_pk,$newperm,$UploadList);
+        if ($commu_status) {
+          $this->insertPermission($newgroup,$upload_pk,$newperm,$UploadList);
+        }
         $newperm = $newgroup = 0;
       } else if ($public_perm >= 0) {
         $this->uploadPermDao->setPublicPermission($upload_pk, $public_perm);
@@ -98,7 +96,9 @@ class UploadPermissionPage extends DefaultPlugin
       foreach ($UploadList as $uploadDetails) {
         $upload_pk = $uploadDetails['upload_pk'];
         if (!empty($newgroup) && !empty($newperm)) {
-          $this->insertPermission($newgroup, $upload_pk, $newperm, $UploadList);
+          if ($commu_status) {
+            $this->insertPermission($newgroup, $upload_pk, $newperm, $UploadList);
+          }
         } else if ($public_perm >= 0) {
           $this->uploadPermDao->setPublicPermission($upload_pk, $public_perm);
         }
@@ -114,7 +114,8 @@ class UploadPermissionPage extends DefaultPlugin
             'newPerm' => $newperm,
             'newGroup' => $newgroup,
             'uploadList' => $UploadList,
-            'permNames' => $GLOBALS['PERM_NAMES']
+            'permNames' => $GLOBALS['PERM_NAMES'],
+            'message' => $response_from_scheduler
             );
 
     if (!empty($UploadList)) {

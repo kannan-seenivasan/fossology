@@ -1,19 +1,8 @@
 <?php
 /*
-Copyright (C) 2014-2015,2019 Siemens AG
+ SPDX-FileCopyrightText: © 2014-2015, 2019 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 use Fossology\Lib\Dao\ClearingDao;
@@ -50,7 +39,7 @@ class MonkScheduledTest extends \PHPUnit\Framework\TestCase
   /** @var HighlightDao */
   private $highlightDao;
 
-  protected function setUp()
+  protected function setUp() : void
   {
     $this->testDb = new TestPgDb("monkSched");
     $this->dbManager = $this->testDb->getDbManager();
@@ -65,7 +54,7 @@ class MonkScheduledTest extends \PHPUnit\Framework\TestCase
     $this->agentDir = dirname(dirname(__DIR__));
   }
 
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->testDb->fullDestruct();
     $this->testDb = null;
@@ -167,7 +156,7 @@ class MonkScheduledTest extends \PHPUnit\Framework\TestCase
 
     $highlights = $this->highlightDao->getHighlightDiffs($this->uploadDao->getItemTreeBounds(7));
 
-    $expectedHighlight = new Highlight(18, 35825, Highlight::MATCH, 20, 35146);
+    $expectedHighlight = new Highlight(18, 35824, Highlight::MATCH, 0, 34505);
     $expectedHighlight->setLicenseId($matchedLicense->getId());
 
     $this->assertEquals(array($expectedHighlight), $highlights);
@@ -175,9 +164,9 @@ class MonkScheduledTest extends \PHPUnit\Framework\TestCase
     $highlights = $this->highlightDao->getHighlightDiffs($this->uploadDao->getItemTreeBounds(11));
 
     $expectedHighlights = array();
-    $expectedHighlights[] = new Highlight(18, 339, Highlight::MATCH, 20, 341);
-    $expectedHighlights[] = new Highlight(340, 347, Highlight::CHANGED, 342, 348);
-    $expectedHighlights[] = new Highlight(348, 35149, Highlight::MATCH, 349, 35146);
+    $expectedHighlights[] = new Highlight(18, 338, Highlight::MATCH, 0, 265);
+    $expectedHighlights[] = new Highlight(339, 346, Highlight::CHANGED, 266, 272);
+    $expectedHighlights[] = new Highlight(347, 35148, Highlight::MATCH, 273, 34505);
     foreach($expectedHighlights as $expectedHighlight) {
       $expectedHighlight->setLicenseId($matchedLicense->getId());
     }

@@ -1,21 +1,10 @@
 <?php
 /*
- Copyright (C) 2014-2017, Siemens AG
+ SPDX-FileCopyrightText: © 2014-2017 Siemens AG
  Author: Daniele Fognini, Johannes Najjar
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\BusinessRules\ClearingDecisionFilter;
@@ -302,7 +291,7 @@ class ClearingView extends FO_Plugin
     $this->vars['clearingTypes'] = $this->decisionTypes->getMap();
     $this->vars['selectedClearingType'] = $selectedClearingType;
     $this->vars['selectedClearingScope'] = $selectedClearingScope;
-    $this->vars['tmpClearingType'] = $this->clearingDao->isDecisionWip($uploadTreeId, $groupId);
+    $this->vars['tmpClearingType'] = $this->clearingDao->isDecisionCheck($uploadTreeId, $groupId, DecisionTypes::WIP);
     $this->vars['bulkHistory'] = $bulkHistory;
 
     $noLicenseUploadTreeView = new UploadTreeProxy($uploadId,
@@ -321,8 +310,12 @@ class ClearingView extends FO_Plugin
 
     $filesAlreadyCleared = $filesOfInterest - $filesToBeCleared;
     $this->vars['message'] = _("Cleared").": $filesAlreadyCleared/$filesOfInterest";
-    $percentage = ($filesAlreadyCleared / $filesOfInterest) * 100;
-    $percentage = ($percentage > 11) ? $percentage : 11;
+    if ($filesOfInterest == 0) {
+      $percentage = 100;
+    } else {
+      $percentage = ($filesAlreadyCleared / $filesOfInterest) * 100;
+      $percentage = ($percentage > 11) ? $percentage : 11;
+    }
     $this->vars['progressBar'] = "width:".$percentage."%";
 
     return $this->render("ui-clearing-view.html.twig");
@@ -358,8 +351,8 @@ class ClearingView extends FO_Plugin
     $uploadTreeTableName = $this->uploadDao->getUploadtreeTableName($lastItem);
     $itemBounds = $this->uploadDao->getItemTreeBounds($lastItem, $uploadTreeTableName);
     if ($global) {
-      $isDecisionWip = $this->clearingDao->isDecisionWip($currentUploadtreeId, $groupId);
-      $hasChangedClearingType = $this->clearingDao->getClearingType($currentUploadtreeId, $groupId, $type);
+      $isDecisionWip = $this->clearingDao->isDecisionCheck($currentUploadtreeId, $groupId, DecisionTypes::WIP);
+      $hasChangedClearingType = $this->clearingDao->isDecisionCheck($currentUploadtreeId, $groupId, '');
       if ($isDecisionWip) {
         $this->clearingDecisionEventProcessor->makeDecisionFromLastEvents($itemBounds, $userId, $groupId, $type, $global);
       } else if (empty($hasChangedClearingType['scope'])

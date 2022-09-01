@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
-Copyright (C) 2017 Siemens AG
-Copyright (C) 2021 Orange by Piotr Pszczola <piotr.pszczola@orange.com>
+/*
+ SPDX-FileCopyrightText: © 2017 Siemens AG
+ SPDX-FileCopyrightText: © 2021 Orange by Piotr Pszczola <piotr.pszczola@orange.com>
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Scan options model
@@ -55,18 +44,24 @@ class ScanOptions
    * Decider settings
    */
   private $decider;
-
+  /**
+   * @var Scancode $scancode
+   * Scancode settings
+   */
+  private $scancode;
   /**
    * ScanOptions constructor.
    * @param Analysis $analysis
    * @param Reuser $reuse
    * @param Decider $decider
+   * @param Scancode $scancode
    */
-  public function __construct($analysis, $reuse, $decider)
+  public function __construct($analysis, $reuse, $decider, $scancode)
   {
     $this->analysis = $analysis;
     $this->reuse = $reuse;
     $this->decider = $decider;
+    $this->scancode = $scancode;
   }
 
   /**
@@ -78,7 +73,8 @@ class ScanOptions
     return [
       "analysis"  => $this->analysis,
       "reuse"     => $this->reuse,
-      "decide"    => $this->decider
+      "decide"    => $this->decider,
+      "scancode"  => $this->scancode
     ];
   }
 
@@ -108,6 +104,7 @@ class ScanOptions
     $agentsToAdd = $this->prepareAgents();
     $this->prepareReuser($paramAgentRequest);
     $this->prepareDecider($paramAgentRequest);
+    $this->prepareScancode($paramAgentRequest);
     $returnStatus = (new \AgentAdder())->scheduleAgents($uploadId, $agentsToAdd, $paramAgentRequest);
     if (is_numeric($returnStatus)) {
       return new Info(201, $returnStatus, InfoType::INFO);
@@ -187,5 +184,27 @@ class ScanOptions
     if ($this->analysis->getNomos()) {
       $request->request->set('Check_agent_nomos', 1);
     }
+  }
+
+  /**
+   * Prepare Request object based on Scancode settings.
+   * @param Request $request
+   */
+  private function prepareScancode(Request &$request)
+  {
+    $scancodeRules = [];
+    if ($this->scancode->getScanLicense() === true) {
+      $scancodeRules[] = 'license';
+    }
+    if ($this->scancode->getScanCopyright() === true) {
+      $scancodeRules[] = 'copyright';
+    }
+    if ($this->scancode->getScanEmail() === true) {
+      $scancodeRules[] = 'email';
+    }
+    if ($this->scancode->getScanUrl() === true) {
+      $scancodeRules[] = 'url';
+    }
+    $request->request->set('scancodeFlags', $scancodeRules);
   }
 }

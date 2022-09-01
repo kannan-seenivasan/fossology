@@ -1,20 +1,9 @@
 <?php
 /*
- Copyright (C) 2012-2014 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2012-2014 Hewlett-Packard Development Company, L.P.
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 require_once("./test_common.php");
 
@@ -99,7 +88,7 @@ class test_cp2foss extends \PHPUnit\Framework\TestCase
 
 
   // this method is run once before each test method defined for this test class.
-  protected function setUp()
+  protected function setUp() : void
   {
 
     fwrite(STDOUT, "--> Running " . __METHOD__ . " method.\n");
@@ -418,7 +407,7 @@ class test_cp2foss extends \PHPUnit\Framework\TestCase
    * \brief clean the env
    */
   // this method is run once after each test method defined for this test class.
-  protected function tearDown()
+  protected function tearDown() : void
   {
 
     global $fossology_testconfig;

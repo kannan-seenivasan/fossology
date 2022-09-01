@@ -1,20 +1,9 @@
 <?php
 /*
- Copyright (C) 2015-2018 Siemens AG
+ SPDX-FileCopyrightText: © 2015-2018 Siemens AG
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 namespace Fossology\SpdxTwo;
 
@@ -58,15 +47,18 @@ class SpdxTwoGeneratorUi extends DefaultPlugin
    */
   function preInstall()
   {
-    $text = _("Generate SPDX report");
-    menu_insert("Browse-Pfile::Export&nbsp;SPDX&nbsp;RDF", 0, self::NAME, $text);
+    $text = _("Generate SPDX report in RDF format");
+    menu_insert("Browse-Pfile::Export&nbsp;SPDX&nbsp;RDF&nbsp;report", 0, self::NAME, $text);
     menu_insert("UploadMulti::Generate&nbsp;SPDX", 0, self::NAME, $text);
 
     $text = _("Generate SPDX report in tag:value format");
-    menu_insert("Browse-Pfile::Export&nbsp;SPDX&nbsp;tag:value", 0, self::NAME . '&outputFormat=spdx2tv', $text);
+    menu_insert("Browse-Pfile::Export&nbsp;SPDX&nbsp;tag:value&nbsp;report", 0, self::NAME . '&outputFormat=spdx2tv', $text);
+
+    $text = _("Generate CSV report (with SPDX IDs)");
+    menu_insert("Browse-Pfile::Export&nbsp;CSV&nbsp;report&nbsp;(SPDX)", 0, self::NAME . '&outputFormat=spdx2csv', $text);
 
     $text = _("Generate Debian Copyright file");
-    menu_insert("Browse-Pfile::Export&nbsp;DEP5", 0, self::NAME . '&outputFormat=dep5', $text);
+    menu_insert("Browse-Pfile::Export&nbsp;DEP5&nbsp;report", 0, self::NAME . '&outputFormat=dep5', $text);
   }
 
   /**
@@ -114,7 +106,7 @@ class SpdxTwoGeneratorUi extends DefaultPlugin
                   'reportType' => $this->outputFormat);
     $text = sprintf(_("Generating ". $this->outputFormat . " report for '%s'"), $upload->getFilename());
     $vars['content'] = "<h2>".$text."</h2>";
-    $content = $this->renderer->loadTemplate("report.html.twig")->render($vars);
+    $content = $this->renderer->load("report.html.twig")->render($vars);
     $message = '<h3 id="jobResult"></h3>';
     $request->duplicate(array('injectedMessage'=>$message,'injectedFoot'=>$content,'mod'=>'showjobs'))->overrideGlobals();
     $showJobsPlugin = \plugin_find('showjobs');

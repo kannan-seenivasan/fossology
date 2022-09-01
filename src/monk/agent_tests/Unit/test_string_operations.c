@@ -1,20 +1,10 @@
 /*
-Author: Daniele Fognini, Andreas Wuerl
-Copyright (C) 2013-2014, Siemens AG
+ Author: Daniele Fognini, Andreas Wuerl
+ SPDX-FileCopyrightText: © 2013-2014 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <CUnit/CUnit.h>
@@ -43,10 +33,10 @@ void test_tokenize() {
 }
 
 void test_tokenizeWithSpecialDelims() {
-  char* test = g_strdup("/*foo \n * bar \n *baz*/ ***booo \n:: qoo ");
+  char* test = g_strdup("/*foo \n * bar \n *baz*/ ***booo \n:: qoo \ndnl zit ");
 
   GArray* token = tokenize(test, " \n");
-  CU_ASSERT_EQUAL(token->len, 5);
+  CU_ASSERT_EQUAL(token->len, 6);
   CU_ASSERT_EQUAL(g_array_index(token, Token, 0).hashedContent, hash("foo"));
   CU_ASSERT_EQUAL(g_array_index(token, Token, 0).length, 3);
   CU_ASSERT_EQUAL(g_array_index(token, Token, 0).removedBefore, 2);
@@ -62,6 +52,9 @@ void test_tokenizeWithSpecialDelims() {
   CU_ASSERT_EQUAL(g_array_index(token, Token, 4).hashedContent, hash("qoo"));
   CU_ASSERT_EQUAL(g_array_index(token, Token, 4).length, 3);
   CU_ASSERT_EQUAL(g_array_index(token, Token, 4).removedBefore, 5);
+  CU_ASSERT_EQUAL(g_array_index(token, Token, 5).hashedContent, hash("zit"));
+  CU_ASSERT_EQUAL(g_array_index(token, Token, 5).length, 3);
+  CU_ASSERT_EQUAL(g_array_index(token, Token, 5).removedBefore, 6);
   g_array_free(token, TRUE);
   g_free(test);
 }

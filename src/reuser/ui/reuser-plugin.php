@@ -1,20 +1,9 @@
 <?php
-/***********************************************************
- * Copyright (C) 2014-2018, Siemens AG
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+/*
+ SPDX-FileCopyrightText: © 2014-2018 Siemens AG
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  */
@@ -149,7 +138,7 @@ class ReuserPlugin extends DefaultPlugin
     $vars['folderUploads'] = $this->prepareFolderUploads($folderId, $trustGroupId);
 
     $renderer = $this->getObject('twig.environment');
-    return $renderer->loadTemplate('agent_reuser.html.twig')->render($vars);
+    return $renderer->load('agent_reuser.html.twig')->render($vars);
   }
 
   /**
@@ -163,7 +152,7 @@ class ReuserPlugin extends DefaultPlugin
     $vars['folderParameterName'] = self::FOLDER_PARAMETER_NAME;
     $vars['uploadToReuseSelectorName'] = self::UPLOAD_TO_REUSE_SELECTOR_NAME;
     $renderer = $this->getObject('twig.environment');
-    return $renderer->loadTemplate('agent_reuser.js.twig')->render($vars);
+    return $renderer->load('agent_reuser.js.twig')->render($vars);
   }
 
   /**

@@ -1,23 +1,13 @@
 <?php
 /*
- Copyright (C) 2015-2019, Siemens AG
+ SPDX-FileCopyrightText: © 2015-2019, 2021 Siemens AG
+ SPDX-FileCopyrightText: © 2020 Robert Bosch GmbH
+ SPDX-FileCopyrightText: © Dineshkumar Devarajan <Devarajan.Dineshkumar@in.bosch.com>
  Author: Shaheem Azmal<shaheem.azmal@siemens.com>,
          Anupam Ghosh <anupam.ghosh@siemens.com>
- Copyright (C) 2020 Robert Bosch GmbH, Dineshkumar Devarajan <Devarajan.Dineshkumar@in.bosch.com>
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * @namespace Fossology::UI::Ajax
@@ -291,6 +281,9 @@ class AjaxShowJobs extends \FO_Plugin
           case 'spdx2tv':
             $jobArr['jobQueue'][$key]['download'] = "SPDX2 tag/value report";
             break;
+          case 'spdx2csv':
+            $jobArr['jobQueue'][$key]['download'] = "SPDX2 CSV report";
+            break;
           case 'dep5':
             $jobArr['jobQueue'][$key]['download'] = "DEP5 copyright file";
             break;
@@ -299,6 +292,9 @@ class AjaxShowJobs extends \FO_Plugin
             break;
           case 'unifiedreport':
             $jobArr['jobQueue'][$key]['download'] = "Unified Report";
+            break;
+          case 'clixml':
+            $jobArr['jobQueue'][$key]['download'] = "Clixml Report";
             break;
           default:
             $jobArr['jobQueue'][$key]['download'] = "";

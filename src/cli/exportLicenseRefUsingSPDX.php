@@ -1,20 +1,9 @@
 <?php
-/***********************************************************
- Copyright (C) 2019 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2019,2021 Siemens AG
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * @file exportLicenseRefUsingSPDX.php
@@ -42,6 +31,10 @@ class exportLicenseRef
     $updateExisting = '';
     $addNewLicense = '';
     $newLicenseRefData = array();
+    $scanList = array(
+      'licenses' => 'https://spdx.org/licenses/licenses.json',
+      'exceptions' => 'https://spdx.org/licenses/exceptions.json'
+    );
     $usage = "Usage: " . basename($argv[0]) . " [options]
 
       Create new licenseref.json file.  Options are:
@@ -64,12 +57,8 @@ class exportLicenseRef
           For type 'licenses' URL is : $scanList[licenses]
 
           For type 'exceptions' URL is : $scanList[exceptions]";
-    $scanList = array(
-    'licenses' => 'https://spdx.org/licenses/licenses.json',
-    'exceptions' => 'https://spdx.org/licenses/exceptions.json'
-    );
 
-    $options = getopt("hcEen", array("type:","url:"));
+    $options = getopt("hcEen", array("type:", "url:"));
     /* get type and url if exists if not set them to empty */
     $type = array_key_exists("type", $options) ? $options["type"] : '';
     $URL =  array_key_exists("url", $options) ? $options["url"] : '';
@@ -113,7 +102,8 @@ class exportLicenseRef
       if (file_exists($newFileName)) {
         unlink($newFileName);
       }
-      $file = fopen($newFileName,'w+');
+      $this->sanitizeRefData($newLicenseRefData);
+      $file = fopen($newFileName, 'w+');
       file_put_contents($newFileName, json_encode($newLicenseRefData, JSON_PRETTY_PRINT, JSON_UNESCAPED_SLASHES));
       fclose($file);
       echo "\n\n INFO: new $newFileName file created \n\n";
@@ -136,7 +126,7 @@ class exportLicenseRef
       return strstr($RFShortName, "-only", true);
     } else if (strpos($RFShortName, "-or-later") !== false) {
       $licenseShortname = strstr($RFShortName, "-or-later", true);
-      return $licenseShortname."+";
+      return $licenseShortname . "+";
     } else {
       return $RFShortName;
     }
@@ -183,12 +173,19 @@ class exportLicenseRef
     $getList = json_decode(file_get_contents($URL));
     foreach ($getList->$type as $listValue) {
       /* get current license data from given URL */
+      if (strstr($URL, "spdx.org") !== false) {
+        // If fetching exceptions from spdx, fix the detailsUrl
+        if (substr_compare($listValue->detailsUrl, ".html", -5) === 0) {
+          $baseUrl = str_replace("exceptions.json", "", $URL);
+          $listValue->detailsUrl = $baseUrl . str_replace("./", "", $listValue->reference);
+        }
+      }
       $getCurrentData = file_get_contents($listValue->detailsUrl);
       $getCurrentData = (array) json_decode($getCurrentData, true);
-      echo "INFO: search for license ".$getCurrentData[$this->mapArrayData[$type][0]]."\n";
+      echo "INFO: search for license " . $getCurrentData[$this->mapArrayData[$type][0]] . "\n";
       /* check if the licenseid of the current license exists in old license data */
       $licenseIdCheck = array_search($getCurrentData[$this->mapArrayData[$type][0]], array_column($existingLicenseRefData, 'rf_shortname'));
-      $currentText = $getCurrentData[$this->mapArrayData[$type][1]];
+      $currentText = $this->replaceUnicode($getCurrentData[$this->mapArrayData[$type][1]]);
       $textCheck = array_search($currentText, array_column($existingLicenseRefData, 'rf_text'));
       if (!is_numeric($licenseIdCheck)) {
         /* if licenseid does'nt exists then remove the suffix if any and search again */
@@ -196,26 +193,26 @@ class exportLicenseRef
         $getCurrentData[$this->mapArrayData[$type][0]];
         $licenseIdCheck = array_search($getCurrentData[$this->mapArrayData[$type][0]], array_column($existingLicenseRefData, 'rf_shortname'));
       }
-      if (is_numeric($licenseIdCheck) &&
-          !is_numeric($textCheck) &&
-          (
-            !empty($updateWithNew) ||
-            !empty($updateExisting)
-          )
-         ) {
+      if (
+        is_numeric($licenseIdCheck) &&
+        !is_numeric($textCheck) &&
+        (!empty($updateWithNew) ||
+          !empty($updateExisting)
+        )
+      ) {
         $existingLicenseRefData[$licenseIdCheck]['rf_fullname'] = $getCurrentData[$this->mapArrayData[$type][2]];
         $existingLicenseRefData[$licenseIdCheck]['rf_text'] = $getCurrentData[$this->mapArrayData[$type][1]];
         $existingLicenseRefData[$licenseIdCheck]['rf_url'] = $getCurrentData['seeAlso'][0];
         $existingLicenseRefData[$licenseIdCheck]['rf_notes'] = (array_key_exists("licenseComments", $getCurrentData) ? $getCurrentData['licenseComments'] : $existingLicenseRefData[$licenseIdCheck]['rf_notes']);
-        echo "INFO: license ".$getCurrentData[$this->mapArrayData[$type][0]]." updated\n\n";
+        echo "INFO: license " . $getCurrentData[$this->mapArrayData[$type][0]] . " updated\n\n";
       }
-      if (!is_numeric($licenseIdCheck) &&
-          !is_numeric($textCheck) &&
-          (
-            !empty($updateWithNew) ||
-            !empty($addNewLicense)
-          )
-         ) {
+      if (
+        !is_numeric($licenseIdCheck) &&
+        !is_numeric($textCheck) &&
+        (!empty($updateWithNew) ||
+          !empty($addNewLicense)
+        )
+      ) {
         $existingLicenseRefData[] = array(
           'rf_shortname' => $getCurrentData[$this->mapArrayData[$type][0]],
           'rf_text' =>  $getCurrentData[$this->mapArrayData[$type][1]],
@@ -238,10 +235,58 @@ class exportLicenseRef
           'rf_spdx_compatible' => "t",
           'rf_flag' => "1"
         );
-        echo "INFO: new license ".$getCurrentData[$this->mapArrayData[$type][0]]." added\n\n";
+        echo "INFO: new license " . $getCurrentData[$this->mapArrayData[$type][0]] . " added\n\n";
       }
     }
     return $existingLicenseRefData;
+  }
+
+  /**
+   * Replace common unicode characters with ASCII for consistent results.
+   *
+   * @param string $text Input text
+   * @return string Input with characters replaced
+   */
+  private function replaceUnicode($text)
+  {
+    if ($text === null) {
+      return null;
+    }
+    $search = [
+      "\u{00a0}",  // no break space
+      "\u{2018}",  // Left single quote
+      "\u{2019}",  // Right single quote
+      "\u{201c}",  // Left double quote
+      "\u{201d}",  // Right double quote
+      "\u{2013}",  // em dash
+      "\u{2028}",  // line separator
+    ];
+
+    $replace = [
+      " ",
+      "'",
+      "'",
+      '"',
+      '"',
+      "-",
+      "\n",
+    ];
+
+    return str_replace($search, $replace, $text);
+  }
+
+  /**
+   * Santize the license ref data before writing to JSON file
+   *
+   * @param[in,out] array $newLicenseRefData License ref data to be sanitized
+   */
+  private function sanitizeRefData(&$newLicenseRefData)
+  {
+    for ($i = 0; $i < count($newLicenseRefData); $i++) {
+      $newLicenseRefData[$i]["rf_fullname"] = $this->replaceUnicode($newLicenseRefData[$i]["rf_fullname"]);
+      $newLicenseRefData[$i]["rf_text"] = $this->replaceUnicode($newLicenseRefData[$i]["rf_text"]);
+      $newLicenseRefData[$i]["rf_notes"] = $this->replaceUnicode($newLicenseRefData[$i]["rf_notes"]);
+    }
   }
 }
 $obj = new exportLicenseRef();

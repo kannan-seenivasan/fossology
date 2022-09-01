@@ -1,7 +1,7 @@
-#####
-# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
-# (C) Copyright 2017-2019 Bittium Wireless Ltd.
-#####
+# SPDX-FileCopyrightText: © 2006-2015 Hewlett-Packard Development Company, L.P.
+# SPDX-FileCopyrightText: © 2017-2019 Bittium Wireless Ltd.
+
+# SPDX-License-Identifier: GPL-2.0-only
 
 /* License footprints */
 
@@ -1034,6 +1034,10 @@
 %KEY% "permi[st]"
 %STR% "redistribution and use in source and binary forms with or without modification are permitted subject to the limitations in the disclaimer below"
 #
+%ENTRY% _LT_BSD_SHORTENED_CLAUSE_0
+%KEY% "permi[st]"
+%STR% "redistribution and use in source and binary forms with or without modification are permitted provided that"
+#
 %ENTRY% _LT_BSD_CLAUSE_1
 %KEY% "copyright"
 %STR% "redistributions? of source code must retain the (above |original author.s )?copyright notice (unmodified )?this list of conditions and the following disclaimer"
@@ -1042,13 +1046,21 @@
 %KEY% "copyright"
 %STR% "redistributions? of source code must retain the above copyright notice (unmodified )?this list of conditions and the following disclaimer this software is provided"
 #
+%ENTRY% _LT_BSD_SHORTENED_CLAUSE_1
+%KEY% "copyright"
+%STR% "source code distributions retain the above copyright notice and this paragraph in its entirety"
+#
 %ENTRY% _LT_BSD_CLAUSE_2
 %KEY% "copyright"
 %STR% "redistributions? in binary form must reproduc[et] the (above |original author.s )?copyright notice this list of conditions and the following disclaimer (listed in this license )?in the documentation and ?/or other materials provided with the distribution"
 #
+%ENTRY% _LT_BSD_SHORTENED_CLAUSE_2
+%KEY% "copyright"
+%STR% "distributions? including binary code include the above copyright notice and this paragraph in its entirety in the documentation or other materials provided with the distribution and"
+#
 %ENTRY% _LT_BSD_CLAUSE_3
 %KEY% "software"
-%STR% "all advertising materials mentioning features or use of this software must display the following acknowledgement"
+%STR% "all advertising materials mentioning features or use of this software (must )?display the following acknowledgement"
 #
 %ENTRY% _LT_BSD_CLAUSE_4
 %KEY% "software"
@@ -5094,6 +5106,10 @@
 %KEY% =NULL=
 %STR% "with exceptions as appearing in the file LICENSE\.GPL3-EXCEPT"
 #
+%ENTRY% _LT_OPENBSD_GPL_EXCEPTION
+%KEY% =NULL=
+%STR% "contribute changes back to the authors under this freer than gpl license"
+#
 %ENTRY% _LT_QUEST_EULA
 %KEY% "so(ftware|urce)"
 %STR% "this agreement the agreement is made between quest software inc Quest and you the customer licen[cs]ee"
@@ -6288,6 +6304,10 @@ k
 %KEY% =NULL=
 %STR% "(org|com|net|cn|de)\.?\/licenses?"
 #
+%ENTRY% _LT_SEE_URL_ref2
+%KEY% =NULL=
+%STR% "licen[cs]e =FEW= (https?|ftp) =SOME= \/licen[cs]es?"
+#
 %ENTRY% _LT_SEE_COPYING_1
 %KEY% "licen[cs]"
 %STR% "under th(e|e terms of the) licen[cs]e (contained|listed|described|set (out|forth)|given|found) in the (file =FEW= \<copying\>|\<copying\> file)"
@@ -6463,7 +6483,7 @@ k
 #
 %ENTRY% _LT_SEE_LICENSE_2
 %KEY% "(condit|vers)ion"
-%STR% "under (certain|the) conditions (refer t(o|o the)|for details (read|read the|refer t(o|o the)|see|see the)|listed in the) (file =FEW= \<licen[cs]e\>|\<licen[cs]e\> file)"
+%STR% "under (certain|the) conditions (refer t(o|o the)|for details (read|read the|refer t(o|o the)|see|view|see the)|listed in the) (file =FEW= \<licen[cs]e\>|\<licen[cs]e\> file)"
 #
 %ENTRY% _LT_SEE_LICENSE_3
 %KEY% "licen[cs]"
@@ -6492,23 +6512,23 @@ k
 #
 %ENTRY% _LT_SEE_LICENSE_9
 %KEY% "licen[cs]"
-%STR% "see license?(qla|qlcnic|qlge) =SOME= for copyright and licensing details"
+%STR% "(see|view) license?(qla|qlcnic|qlge) =SOME= for copyright and licensing details"
 #
 %ENTRY% _LT_SEE_LICENSE_10
-%KEY% "licen[cs]" 
-%STR% "licen[cs]e see licen[cs]e?txt" 
+%KEY% "licen[cs]"
+%STR% "licen[cs]e (see|view) licen[cs]e?txt"
 #
 %ENTRY% _LT_SEE_LICENSE_11
 %KEY% "licen[cs]"
-%STR% "see the accompanying file license =SOME= for terms of use"
+%STR% "(see|view) the accompanying file license =SOME= for terms of use"
 #
 %ENTRY% _LT_SEE_LICENSE_12
 %KEY% "licen[cs]"
-%STR% "license please see accompanying LICENSE"
+%STR% "license please (see|view) accompanying LICENSE"
 #
 %ENTRY% _LT_SEE_LICENSE_13
 %KEY% "licen[cs]"
-%STR% "see =FEW= license file =FEW= for more information"
+%STR% "(see|view) =FEW= license file =FEW= for more information"
 #
 %ENTRY% _LT_SEE_LICENSE_14
 %KEY% "licen[cs]"
@@ -6528,7 +6548,7 @@ k
 #
 %ENTRY% _LT_SEE_LICENSE_18
 %KEY% "licen[cs]"
-%STR% "see (the )?license( file|\.?txt) =FEW= for licens(ing terms|e information)"
+%STR% "(see|view) (the )?license( file|\.?txt) =FEW= for licens(ing terms|e information)"
 #
 %ENTRY% _LT_SEE_LICENSE_19
 %KEY% "licen[cs]"
@@ -6540,13 +6560,18 @@ k
 #####
 # These MUST be the last 2 checks for license references in the file "license"
 #####
+# Following two strings have (see|view) as alternative which does not work with
+# CHECKSTR. Thus the NOCHECK
+#####
 %ENTRY% _LT_SEE_LICENSE_FINAL1
-%KEY% "\<(see|sell|sale|sold|charge)\>"
-%STR% "(distribut|copy|mod) =SOME= for details see th(e|is) (file =FEW= \<licen[cs]e\>|\<licen[cs]e\> file)"
+%NOCHECK%
+%KEY% "\<(see|sell|sale|sold|charge|view)\>"
+%STR% "(distribut|copy|mod) =SOME= for details (see|view) th(e|is) (file =FEW= \<licen[cs]e\>|\<licen[cs]e\> file)"
 #
 %ENTRY% _LT_SEE_LICENSE_FINAL2
-%KEY% "\<(see|sell|sale|sold|charge)\>"
-%STR% "see the (file =FEW= \<licen[cs]e\>|\<licen[cs]e\> file) =SOME= (distribut|dir|copy|us(e|age)|mod|free soft)"
+%NOCHECK%
+%KEY% "\<(see|sell|sale|sold|charge|view)\>"
+%STR% "(see|view) the (file =FEW= \<licen[cs]e\>|\<licen[cs]e\> file) =SOME= (distribut|dir|copy|us(e|age)|mod|free soft)"
 #
 %ENTRY% _LT_SEE_LICENSE_FINAL3
 %NOCHECK%

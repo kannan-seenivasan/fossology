@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © Fossology contributors
+
+# SPDX-License-Identifier: FSFAP
 /.idea
 /.vscode
 *iml
@@ -12,6 +15,7 @@ cov.txt
 *Tests-Listing.xml
 *Tests-Results.xml
 VERSION
+VERSIONSTRING
 /.project
 /.cproject
 .settings
@@ -24,8 +28,10 @@ VERSION
 tags
 php.ini
 .cache
+.phan
 
 # compiled or derived files
+compile_commands.json
 install/db/dbcreate
 install/defconf/Db.conf
 install/defconf/fossology.conf
@@ -53,6 +59,8 @@ src/cli/fo_import_licenses
 src/cli/fo_usergroup
 src/cli/fossupload_status
 src/cli/exportLicenseRefUsingSPDX
+src/clixml/agent/version.php
+src/clixml/agent/clixml
 src/copyright/agent/copyright
 src/copyright/agent/keyword
 src/copyright/agent/fo_unicode_clean
@@ -114,6 +122,7 @@ src/nomos/agent_tests/Unit/test_nomos
 src/ojo/agent/ojo
 src/ojo/agent_tests/Functional/ojo
 src/ojo/agent_tests/Unit/test_ojo
+src/scancode/agent/scancode
 src/pkgagent/agent/pkgagent
 src/scheduler/agent/defconf/init.d/fossology
 src/scheduler/agent/fo_cli
@@ -130,7 +139,9 @@ src/ununpack/agent/departition
 src/ununpack/agent/ununpack
 src/ununpack/agent/departition-sa
 src/ununpack/agent/ununpack-sa
+src/ununpack/agent_tests/Unit/testconf
 src/wget_agent/agent/wget_agent
+src/wget_agent/agent_tests/test_result
 variable.list
 /nbproject/private/
 /src/monk/VERSION-monk
@@ -144,7 +155,6 @@ variable.list
 /src/readmeoss/agent/version.php
 /src/reuser/agent/reuser
 /src/reuser/agent/version.php
-/src/reuser/agent/reuser
 /src/copyright/agent/ecc
 /src/copyright/VERSION-ecc
 /src/copyright/VERSION-keyword
@@ -176,6 +186,12 @@ install/fossdash/fossdash-publish.py
 src/reso/agent/version.php
 src/reso/agent/reso
 src/www/ui/css/bootstrap/
+src/www/ui/scripts/bootstrap/
 
 # Add all the Ubuntu consol log file
 ubuntu-*
+
+# PHPUnit cache
+.phpunit.result.cache
+*-Xunit.xml
+/phpenv/

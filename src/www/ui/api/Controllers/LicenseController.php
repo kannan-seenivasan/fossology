@@ -1,21 +1,9 @@
 <?php
+/*
+ SPDX-FileCopyrightText: © 2021 HH Partners
 
-/***************************************************************
- Copyright (C) 2021 HH Partners
-
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Controller for licenses
@@ -27,13 +15,13 @@ use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Exception;
 use Fossology\Lib\Util\StringOperation;
+use Fossology\UI\Api\Helper\ResponseHelper;
 use Fossology\UI\Api\Models\License;
 use Fossology\UI\Api\Models\Obligation;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
 use Psr\Container\ContainerInterface;
-use Slim\Http\Request;
-use Slim\Http\Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
 
 /**
  * @class LicenseController
@@ -76,9 +64,9 @@ class LicenseController extends RestController
    * Get the license information based on the provided parameters
    *
    * @param Request $request
-   * @param Response $response
+   * @param ResponseHelper $response
    * @param array $args
-   * @return Response
+   * @return ResponseHelper
    */
   public function getLicense($request, $response, $args)
   {
@@ -138,13 +126,14 @@ class LicenseController extends RestController
    * Get list of all licenses, paginated upon request params
    *
    * @param Request $request
-   * @param Response $response
+   * @param ResponseHelper $response
    * @param array $args
-   * @return Response
+   * @return ResponseHelper
    */
   public function getAllLicenses($request, $response, $args)
   {
-    $retVal = null;
+    $info = null;
+    $errorHeader = false;
     $query = $request->getQueryParams();
     $limit = $request->getHeaderLine(self::LIMIT_PARAM);
     if (! empty($limit)) {
@@ -152,7 +141,7 @@ class LicenseController extends RestController
       if ($limit < 1) {
         $info = new Info(400, "limit should be positive integer > 1",
           InfoType::ERROR);
-        $retVal = $response->withJson($info->getArray(), $info->getCode());
+          $limit = self::LICENSE_FETCH_LIMIT;
       }
     } else {
       $limit = self::LICENSE_FETCH_LIMIT;
@@ -174,18 +163,20 @@ class LicenseController extends RestController
       if ($page <= 0) {
         $info = new Info(400, "page should be positive integer > 0",
           InfoType::ERROR);
-        $retVal = $response->withJson($info->getArray(), $info->getCode());
       }
       if ($page > $totalPages) {
         $info = new Info(400, "Can not exceed total pages: $totalPages",
           InfoType::ERROR);
-        $retVal = $response->withHeader("X-Total-Pages", $totalPages)
-          ->withJson($info->getArray(), $info->getCode());
+        $errorHeader = ["X-Total-Pages", $totalPages];
       }
     } else {
       $page = 1;
     }
-    if ($retVal !== null) {
+    if ($info !== null) {
+      $retVal = $response->withJson($info->getArray(), $info->getCode());
+      if ($errorHeader) {
+        $retVal = $retVal->withHeader($errorHeader[0], $errorHeader[1]);
+      }
       return $retVal;
     }
     $onlyActive = $request->getHeaderLine(self::ACTIVE_PARAM);
@@ -221,13 +212,13 @@ class LicenseController extends RestController
    * Create a new license
    *
    * @param Request $request
-   * @param Response $response
+   * @param ResponseHelper $response
    * @param array $args
-   * @return Response
+   * @return ResponseHelper
    */
   public function createLicense($request, $response, $args)
   {
-    $newLicense = $request->getParsedBody();
+    $newLicense = $this->getParsedBody($request);
     $newLicense = License::parseFromArray($newLicense);
     $newInfo = null;
     if ($newLicense === -1) {
@@ -285,13 +276,13 @@ class LicenseController extends RestController
    * Update a license
    *
    * @param Request $request
-   * @param Response $response
+   * @param ResponseHelper $response
    * @param array $args
-   * @return Response
+   * @return ResponseHelper
    */
   public function updateLicense($request, $response, $args)
   {
-    $newParams = $request->getParsedBody();
+    $newParams = $this->getParsedBody($request);
     $shortName = $args["shortname"];
     $newInfo = null;
     if (empty($shortName)) {

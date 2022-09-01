@@ -1,8 +1,6 @@
-{# Copyright 2019 Siemens AG
+{# SPDX-FileCopyrightText: © 2019 Siemens AG
 
-   Copying and distribution of this file, with or without modification,
-   are permitted in any medium without royalty provided the copyright notice and this notice are preserved.
-   This file is offered as-is, without any warranty.
+   SPDX-License-Identifier: FSFAP
 #}
 {% extends "include/base.html.twig" %}
 
@@ -13,7 +11,7 @@
   {% elseif tagInvalid == 2%}
     <h2>{{ "Upload data is unavailable. It needs to be unpacked."|trans }}</h2>
   {% elseif tagsEntries|length > 0 %}
-    <table border="1">
+    <table class="table" border="1">
       <tr><th>{{ "File name"|trans }}</th><th>{{ "Tag"|trans }}</th><th></th></tr>
       {% for entry in tagsEntries %}
         <tr>
@@ -50,7 +48,7 @@
       </form>
     {% elseif packageType is not empty %}
       {{ packageType|e }}
-      <table border="1" name="pkginfo">
+      <table class="table" border="1" name="pkginfo">
         <tr>
           <th width="5%">{{ "Item"|trans }}</th>
           <th width="20%">{{ "Type"|trans }}</th>
@@ -75,7 +73,7 @@
   {% endif %}
 
   <h2>{{ "File Info"|trans }}</h2>
-  <table border="1">
+  <table class="table" border="1">
     <tr>
       <th width="5%">{{ "Item"|trans }}</th>
       <th width="20%">{{ "Meta Data"|trans }}</th>
@@ -125,7 +123,7 @@
 
   {% if reusedPackageList is not empty %}
     <h2>{{ "Reused component"|trans }}</h2>
-    <table border="1">
+    <table class="table" border="1">
       <thead>
         <tr>
           <th width="5%">{{ "Item"|trans }}</th>
@@ -164,7 +162,7 @@
 
   {% if repoLocPage == 0 %}
     <h2>{{ "Repository Locator"|trans }}</h2>
-    <table border="1">
+    <table class="table" border="1">
       <tr>
         <th>{{ "Attribute"|trans }}</th>
         <th>{{ "Value"|trans }}</th>

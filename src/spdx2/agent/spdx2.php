@@ -1,21 +1,10 @@
 <?php
 /*
- * Copyright (C) 2015-2016, Siemens AG
- * Copyright (C) 2017 TNG Technology Consulting GmbH
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
+ SPDX-FileCopyrightText: © 2015-2016 Siemens AG
+ SPDX-FileCopyrightText: © 2017 TNG Technology Consulting GmbH
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @dir
  * @brief Source code of SPDX2 report agent
@@ -70,6 +59,7 @@ use Fossology\Lib\Proxy\UploadTreeProxy;
 use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Data\License;
 use Fossology\Lib\Data\AgentRef;
+use Fossology\Lib\Data\Package\ComponentType;
 
 include_once(__DIR__ . "/spdx2utils.php");
 
@@ -85,7 +75,7 @@ class SpdxTwoAgent extends Agent
 
   const OUTPUT_FORMAT_KEY = "outputFormat";               ///< Argument key for output format
   const DEFAULT_OUTPUT_FORMAT = "spdx2";                  ///< Default output format
-  const AVAILABLE_OUTPUT_FORMATS = "spdx2,spdx2tv,dep5";  ///< Output formats available
+  const AVAILABLE_OUTPUT_FORMATS = "spdx2,spdx2tv,dep5,spdx2csv";  ///< Output formats available
   const UPLOAD_ADDS = "uploadsAdd";                       ///< Argument for additional uploads
 
   /** @var UploadDao $uploadDao
@@ -146,7 +136,11 @@ class SpdxTwoAgent extends Agent
   {
     // deduce the agent name from the command line arguments
     $args = getopt("", array(self::OUTPUT_FORMAT_KEY.'::'));
-    $agentName = trim($args[self::OUTPUT_FORMAT_KEY]);
+    if (array_key_exists(self::OUTPUT_FORMAT_KEY, $args)) {
+      $agentName = trim($args[self::OUTPUT_FORMAT_KEY]);
+    } else {
+      $agentName = "";
+    }
     if (empty($agentName)) {
         $agentName = self::DEFAULT_OUTPUT_FORMAT;
     }
@@ -239,6 +233,8 @@ class SpdxTwoAgent extends Agent
         break;
       case "spdx2tv":
         break;
+      case "spdx2csv":
+        break;
       case "dep5":
         $prefix = $prefix . "copyright-";
         break;
@@ -263,6 +259,9 @@ class SpdxTwoAgent extends Agent
           break;
         case "spdx2tv":
           $fileName = $fileName .".spdx";
+          break;
+        case "spdx2csv":
+          $fileName = $fileName .".csv";
           break;
         case "dep5":
           $fileName = $fileName .".txt";
@@ -340,11 +339,28 @@ class SpdxTwoAgent extends Agent
     }
 
     $hashes = $this->uploadDao->getUploadHashes($uploadId);
+
+    $reportInfo = $this->uploadDao->getReportInfo($uploadId);
+    $componentId = $reportInfo['ri_component_id'];
+    $componentType = $reportInfo['ri_component_type'];
+    if ($componentId == "NA") {
+      $componentId = "";
+    }
+    if ($componentType == ComponentType::MAVEN) {
+      $componentType = "maven-central";
+    } elseif ($componentType == ComponentType::PACKAGEURL) {
+      $componentType = "purl";
+    } else {
+      $componentType = ComponentType::TYPE_MAP[$componentType];
+    }
+
     return $this->renderString($this->getTemplateFile('package'),array(
         'packageId' => $uploadId,
         'uri' => $this->uri,
         'packageName' => $upload->getFilename(),
         'uploadName' => $upload->getFilename(),
+        'componentType' => $componentType,
+        'componentId' => htmlspecialchars($componentId),
         'sha1' => $hashes['sha1'],
         'md5' => $hashes['md5'],
         'sha256' => $hashes['sha256'],
@@ -648,7 +664,7 @@ class SpdxTwoAgent extends Agent
    */
   protected function renderString($templateName, $vars)
   {
-    return $this->renderer->loadTemplate($templateName)->render($vars);
+    return $this->renderer->load($templateName)->render($vars);
   }
 
   /**

@@ -1,20 +1,9 @@
 <?php
 /*
-Copyright (C) 2014, Siemens AG
-Authors: Steffen Weber, Andreas Würl
+ SPDX-FileCopyrightText: © 2014 Siemens AG
+ Authors: Steffen Weber, Andreas Würl
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 namespace Fossology\Lib\Db;
@@ -45,7 +34,7 @@ class ModernDbManager extends DbManager
     $res = $this->dbDriver->prepare($statementName, $sqlStatement);
     $this->cumulatedTime[$statementName] = microtime($get_as_float = true) - $startTime;
     $this->queryCount[$statementName] = 0;
-    $this->logger->addDebug("prepare '$statementName' took " . sprintf("%0.3fms", 1000 * $this->cumulatedTime[$statementName]));
+    $this->logger->debug("prepare '$statementName' took " . sprintf("%0.3fms", 1000 * $this->cumulatedTime[$statementName]));
     $this->checkResult($res, "$sqlStatement -- $statementName");
     $this->preparedStatements[$statementName] = $sqlStatement;
   }

@@ -1,25 +1,16 @@
 <?php
 /*
- Copyright (C) 2011 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2011 Hewlett-Packard Development Company, L.P.
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- */
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * \file test_common_menu.php
  * \brief unit tests for common-menu.php
  */
+
+use PHPUnit\Runner\Version as PHPUnitVersion;
 
 require_once(dirname(__FILE__) . '/../common-menu.php');
 require_once(dirname(__FILE__) . '/../common-parm.php');
@@ -30,7 +21,7 @@ require_once(dirname(__FILE__) . '/../common-parm.php');
 class test_common_menu extends \PHPUnit\Framework\TestCase
 {
   /* initialization */
-  protected function setUp()
+  protected function setUp() : void
   {
   }
 
@@ -47,8 +38,13 @@ class test_common_menu extends \PHPUnit\Framework\TestCase
     $Uri = "http://fossology.org/repo/";
     $expected = "<a href='http:\/\/fossology.org\/repo\/&page=9'>\[Prev\]<\/a>";
     $result = MenuPage($Page, $TotalPage, $Uri);
-    $this->assertRegExp("/<b>11<\/b>/", $result);
-    $this->assertRegExp("/$expected/", $result);
+    if (intval(explode('.', PHPUnitVersion::id())[0]) >= 9) {
+      $this->assertMatchesRegularExpression("/<b>11<\/b>/", $result);
+      $this->assertMatchesRegularExpression("/$expected/", $result);
+    } else {
+      $this->assertRegExp("/<b>11<\/b>/", $result);
+      $this->assertRegExp("/$expected/", $result);
+    }
   }
 
   /**
@@ -62,8 +58,13 @@ class test_common_menu extends \PHPUnit\Framework\TestCase
     $Uri = "http://fossology.org/repo/";
     $expected = "<a href='http:\/\/fossology.org\/repo\/&page=9'>\[Prev\]<\/a>";
     $result = MenuEndlessPage($Page, 1, $Uri);
-    $this->assertRegExp("/<b>11<\/b>/", $result);
-    $this->assertRegExp("/$expected/", $result);
+    if (intval(explode('.', PHPUnitVersion::id())[0]) >= 9) {
+      $this->assertMatchesRegularExpression("/<b>11<\/b>/", $result);
+      $this->assertMatchesRegularExpression("/$expected/", $result);
+    } else {
+      $this->assertRegExp("/<b>11<\/b>/", $result);
+      $this->assertRegExp("/$expected/", $result);
+    }
   }
 
   /**
@@ -109,19 +110,28 @@ class test_common_menu extends \PHPUnit\Framework\TestCase
 
     print "test function menu_to_1html)\n";
     $result = menu_to_1html($MenuList);
-    $this->assertRegExp("/TestMenu/", $result);
+    $pattern = "/TestMenu/";
+    if (intval(explode('.', PHPUnitVersion::id())[0]) >= 9) {
+      $this->assertMatchesRegularExpression($pattern, $result);
+    } else {
+      $this->assertRegExp($pattern, $result);
+    }
 
     print "test function menu_to_1list)\n";
     $Parm = "";
     $result = menu_to_1list($MenuList, $Parm, "", "");
-    $this->assertRegExp("/TestMenu/", $result);
+    if (intval(explode('.', PHPUnitVersion::id())[0]) >= 9) {
+      $this->assertMatchesRegularExpression($pattern, $result);
+    } else {
+      $this->assertRegExp($pattern, $result);
+    }
     print "Ending unit test for common-menu.php\n";
   }
 
   /**
    * \brief clean the env
    */
-  protected function tearDown()
+  protected function tearDown() : void
   {
   }
 }

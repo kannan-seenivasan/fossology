@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- * Copyright (C) 2020 Siemens AG
- * Author: Gaurav Mishra <mishra.gaurav@siemens.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+/*
+ SPDX-FileCopyrightText: © 2020-2021 Siemens AG
+ Author: Gaurav Mishra <mishra.gaurav@siemens.com>
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Tests for ReportController
@@ -24,6 +13,7 @@
 namespace Fossology\UI\Api\Test\Controllers;
 
 use Mockery as M;
+use Fossology\CliXml\CliXmlGeneratorUi;
 use Fossology\Lib\Dao\UploadDao;
 use Fossology\Lib\Data\Upload\Upload;
 use Fossology\Lib\Db\DbManager;
@@ -32,11 +22,11 @@ use Fossology\UI\Api\Helper\DbHelper;
 use Fossology\UI\Api\Helper\RestHelper;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
-use Slim\Http\Body;
-use Slim\Http\Headers;
-use Slim\Http\Request;
-use Slim\Http\Response;
-use Slim\Http\Uri;
+use Fossology\UI\Api\Helper\ResponseHelper;
+use Slim\Psr7\Request;
+use Slim\Psr7\Factory\StreamFactory;
+use Slim\Psr7\Uri;
+use Slim\Psr7\Headers;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
@@ -56,7 +46,8 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
     'spdx2',
     'spdx2tv',
     'readmeoss',
-    'unifiedreport'
+    'unifiedreport',
+    'clixml'
   );
 
   /**
@@ -96,6 +87,12 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
   private $readmeossPlugin;
 
   /**
+   * @var M\MockInterface $clixmlPlugin
+   * CLIXMLPlugin mock
+   */
+  private $clixmlPlugin;
+
+  /**
    * @var M\MockInterface $unifiedPlugin
    * FoUnifiedReportGenerator mock
    */
@@ -120,10 +117,16 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
   private $assertCountBefore;
 
   /**
+   * @var StreamFactory $streamFactory
+   * Stream factory to create body streams.
+   */
+  private $streamFactory;
+
+  /**
    * @brief Setup test objects
    * @see PHPUnit_Framework_TestCase::setUp()
    */
-  protected function setUp()
+  protected function setUp() : void
   {
     global $container;
     $this->userId = 2;
@@ -135,6 +138,7 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
     $this->uploadDao = M::mock(UploadDao::class);
     $this->spdxPlugin = M::mock(SpdxTwoGeneratorUi::class);
     $this->readmeossPlugin = M::mock('ReadMeOssPlugin');
+    $this->clixmlPlugin = M::mock(CliXmlGeneratorUi::class);
     $this->unifiedPlugin = M::mock('FoUnifiedReportGenerator');
     $this->downloadPlugin = M::mock('ui_download');
 
@@ -149,6 +153,8 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
     $this->restHelper->shouldReceive('getPlugin')
       ->withArgs(array('ui_readmeoss'))->andReturn($this->readmeossPlugin);
     $this->restHelper->shouldReceive('getPlugin')
+      ->withArgs(array('ui_clixml'))->andReturn($this->clixmlPlugin);
+    $this->restHelper->shouldReceive('getPlugin')
       ->withArgs(array('download'))->andReturn($this->downloadPlugin);
     $this->restHelper->shouldReceive('getPlugin')
       ->withArgs(array('agent_founifiedreport'))
@@ -158,13 +164,14 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
       'helper.restHelper'))->andReturn($this->restHelper);
     $this->reportController = new ReportController($container);
     $this->assertCountBefore = \Hamcrest\MatcherAssert::getCount();
+    $this->streamFactory = new StreamFactory();
   }
 
   /**
    * @brief Remove test objects
    * @see PHPUnit_Framework_TestCase::tearDown()
    */
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->addToAssertionCount(
       \Hamcrest\MatcherAssert::getCount() - $this->assertCountBefore);
@@ -222,12 +229,12 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
   private function getResponseForReport($uploadId, $reportFormat)
   {
     $requestHeaders = new Headers();
-    $requestHeaders->set('uploadId', $uploadId);
-    $requestHeaders->set('reportFormat', $reportFormat);
-    $body = new Body(fopen('php://temp', 'r+'));
+    $requestHeaders->setHeader('uploadId', $uploadId);
+    $requestHeaders->setHeader('reportFormat', $reportFormat);
+    $body = $this->streamFactory->createStream();
     $request = new Request("GET", new Uri("HTTP", "localhost", 80,
       "/api/v1/report"), $requestHeaders, [], [], $body);
-    $response = new Response();
+    $response = new ResponseHelper();
     return $this->reportController->getReport($request, $response, []);
   }
 
@@ -252,6 +259,8 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
     $this->readmeossPlugin->shouldReceive('scheduleAgent')
       ->withArgs([$this->groupId, $upload])->andReturn([32, 33, ""]);
     $this->unifiedPlugin->shouldReceive('scheduleAgent')
+      ->withArgs([$this->groupId, $upload])->andReturn([32, 33, ""]);
+    $this->clixmlPlugin->shouldReceive('scheduleAgent')
       ->withArgs([$this->groupId, $upload])->andReturn([32, 33, ""]);
 
     $expectedResponse = new Info(201, "localhost/api/v1/report/32",
@@ -380,7 +389,7 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
     $fileContent = $fileResponse->getFile();
     $this->downloadPlugin->shouldReceive('getReport')->andReturn($fileResponse);
 
-    $expectedResponse = new Response();
+    $expectedResponse = new ResponseHelper();
     $expectedResponse = $expectedResponse->withHeader('Content-Description',
         'File Transfer')
       ->withHeader('Content-Type', $fileResponse->headers->get('Content-Type'))
@@ -390,17 +399,14 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
       ->withHeader('Pragma', 'private')
       ->withHeader('Content-Length', filesize($fileContent));
 
-    ob_start();
     $actualResponse = $this->reportController->downloadReport(null,
-      new Response(), ["id" => $reportId]);
-    $output = ob_get_clean();
+      new ResponseHelper(), ["id" => $reportId]);
 
     $expectedResponse->getBody()->seek(0);
-    $this->assertEquals($expectedResponse->getBody()->getContents(),
+    $this->assertEquals(file_get_contents($tmpfile),
       $actualResponse->getBody()->getContents());
     $this->assertEquals($expectedResponse->getHeaders(),
       $actualResponse->getHeaders());
-    $this->assertEquals(file_get_contents($tmpfile), $output);
     unlink($tmpfile);
   }
 
@@ -429,7 +435,7 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
       InfoType::INFO);
 
     $actualResponse = $this->reportController->downloadReport(null,
-      new Response(), ["id" => $reportId]);
+      new ResponseHelper(), ["id" => $reportId]);
 
     $this->assertEquals($expectedResponse->getCode(),
       $actualResponse->getStatusCode());
@@ -455,7 +461,7 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
             InfoType::ERROR);
 
     $actualResponse = $this->reportController->downloadReport(null,
-      new Response(), ["id" => $reportId]);
+      new ResponseHelper(), ["id" => $reportId]);
 
     $this->assertEquals($expectedResponse->getCode(),
       $actualResponse->getStatusCode());
@@ -492,7 +498,7 @@ class ReportControllerTest extends \PHPUnit\Framework\TestCase
       InfoType::INFO);
 
     $actualResponse = $this->reportController->downloadReport(null,
-      new Response(), ["id" => $reportId]);
+      new ResponseHelper(), ["id" => $reportId]);
 
     $this->assertEquals($expectedResponse->getCode(),
       $actualResponse->getStatusCode());

@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- Copyright (C) 2020 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2020 Siemens AG
  Author: Gaurav Mishra <mishra.gaurav@siemens.com>
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Controller to search files based on hash provided
@@ -26,12 +15,12 @@ namespace Fossology\UI\Api\Controllers;
 use Fossology\Lib\Dao\ClearingDao;
 use Fossology\Lib\Dao\LicenseDao;
 use Fossology\UI\Api\Helper\FileHelper;
+use Fossology\UI\Api\Helper\ResponseHelper;
 use Fossology\UI\Api\Models\File;
 use Fossology\UI\Api\Models\Findings;
 use Fossology\UI\Api\Models\Hash;
 use Psr\Container\ContainerInterface;
-use Slim\Http\Request;
-use Slim\Http\Response;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * @class FileSearchController
@@ -71,14 +60,14 @@ class FileSearchController extends RestController
   /**
    * Get the file information based on hashes sent
    *
-   * @param Request $request
-   * @param Response $response
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
    * @param array $args
-   * @return Response
+   * @return ResponseHelper
    */
   public function getFiles($request, $response, $args)
   {
-    $fileListJSON = $request->getParsedBody();
+    $fileListJSON = $this->getParsedBody($request);
     $inputFileList = File::parseFromArray($fileListJSON);
     $existsList = [];
     $nonExistsList = [];

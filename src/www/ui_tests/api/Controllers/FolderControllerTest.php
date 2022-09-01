@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- * Copyright (C) 2020 Siemens AG
- * Author: Gaurav Mishra <mishra.gaurav@siemens.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+/*
+ SPDX-FileCopyrightText: © 2020 Siemens AG
+ Author: Gaurav Mishra <mishra.gaurav@siemens.com>
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Controller for folder queries
@@ -67,13 +56,13 @@ namespace Fossology\UI\Api\Test\Controllers
   use Fossology\UI\Api\Controllers\FolderController;
   use Fossology\Lib\Dao\FolderDao;
   use Fossology\Lib\Data\Folder\Folder;
-  use Slim\Http\Response;
   use Fossology\UI\Api\Models\Info;
   use Fossology\UI\Api\Models\InfoType;
-  use Slim\Http\Headers;
-  use Slim\Http\Request;
-  use Slim\Http\Uri;
-  use Slim\Http\Body;
+  use Fossology\UI\Api\Helper\ResponseHelper;
+  use Slim\Psr7\Request;
+  use Slim\Psr7\Factory\StreamFactory;
+  use Slim\Psr7\Uri;
+  use Slim\Psr7\Headers;
 
   /**
    * @class FolderControllerTest
@@ -135,10 +124,16 @@ namespace Fossology\UI\Api\Test\Controllers
     private $assertCountBefore;
 
     /**
+     * @var StreamFactory $streamFactory
+     * Stream factory to create body streams.
+     */
+    private $streamFactory;
+
+    /**
      * @brief Setup test objects
      * @see PHPUnit_Framework_TestCase::setUp()
      */
-    protected function setUp()
+    protected function setUp() : void
     {
       global $container;
       $this->userId = 2;
@@ -169,13 +164,14 @@ namespace Fossology\UI\Api\Test\Controllers
         'helper.restHelper'))->andReturn($this->restHelper);
       $this->folderController = new FolderController($container);
       $this->assertCountBefore = \Hamcrest\MatcherAssert::getCount();
+      $this->streamFactory = new StreamFactory();
     }
 
     /**
      * @brief Remove test objects
      * @see PHPUnit_Framework_TestCase::tearDown()
      */
-    protected function tearDown()
+    protected function tearDown() : void
     {
       $this->addToAssertionCount(
         \Hamcrest\MatcherAssert::getCount() - $this->assertCountBefore);
@@ -254,7 +250,7 @@ namespace Fossology\UI\Api\Test\Controllers
         $expectedFoldersList[] = $folderModel->getArray();
       }
       $actualResponse = $this->folderController->getFolders(null,
-        new Response(), []);
+        new ResponseHelper(), []);
       $this->assertEquals(200, $actualResponse->getStatusCode());
       $this->assertEquals($expectedFoldersList,
         $this->getResponseJson($actualResponse));
@@ -280,7 +276,7 @@ namespace Fossology\UI\Api\Test\Controllers
         $folder->getName(), $folder->getDescription(), $parentId);
       $expectedFoldersList = $folderModel->getArray();
       $actualResponse = $this->folderController->getFolders(null,
-        new Response(), ['id' => $folderId]);
+        new ResponseHelper(), ['id' => $folderId]);
       $this->assertEquals(200, $actualResponse->getStatusCode());
       $this->assertEquals($expectedFoldersList,
         $this->getResponseJson($actualResponse));
@@ -302,7 +298,7 @@ namespace Fossology\UI\Api\Test\Controllers
       $expectedResponse = new Info(404, "Folder id $folderId does not exists",
         InfoType::ERROR);
       $actualResponse = $this->folderController->getFolders(null,
-        new Response(), ['id' => $folderId]);
+        new ResponseHelper(), ['id' => $folderId]);
       $this->assertEquals($expectedResponse->getCode(),
         $actualResponse->getStatusCode());
       $this->assertEquals($expectedResponse->getArray(),
@@ -325,7 +321,7 @@ namespace Fossology\UI\Api\Test\Controllers
       $expectedResponse = new Info(403, "Folder id $folderId is not accessible",
         InfoType::ERROR);
       $actualResponse = $this->folderController->getFolders(null,
-        new Response(), ['id' => $folderId]);
+        new ResponseHelper(), ['id' => $folderId]);
       $this->assertEquals($expectedResponse->getCode(),
         $actualResponse->getStatusCode());
       $this->assertEquals($expectedResponse->getArray(),
@@ -351,13 +347,13 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderDao->shouldReceive('getFolderId')
         ->withArgs(array($folderName, $parentFolder))->andReturn($folderId);
       $requestHeaders = new Headers();
-      $requestHeaders->set('parentFolder', $parentFolder);
-      $requestHeaders->set('folderName', $folderName);
-      $requestHeaders->set('folderDescription', $folderDescription);
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parentFolder', $parentFolder);
+      $requestHeaders->setHeader('folderName', $folderName);
+      $requestHeaders->setHeader('folderDescription', $folderDescription);
+      $body = $this->streamFactory->createStream();
       $request = new Request("POST", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
       $actualResponse = $this->folderController->createFolder($request,
         $response, []);
       $expectedResponse = new Info(201, $folderId, InfoType::INFO);
@@ -380,13 +376,13 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderDao->shouldReceive('isFolderAccessible')
         ->withArgs(array($parentFolder, $this->userId))->andReturn(false);
       $requestHeaders = new Headers();
-      $requestHeaders->set('parentFolder', $parentFolder);
-      $requestHeaders->set('folderName', $folderName);
-      $requestHeaders->set('folderDescription', $folderDescription);
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parentFolder', $parentFolder);
+      $requestHeaders->setHeader('folderName', $folderName);
+      $requestHeaders->setHeader('folderDescription', $folderDescription);
+      $body = $this->streamFactory->createStream();
       $request = new Request("POST", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
       $actualResponse = $this->folderController->createFolder($request,
         $response, []);
       $expectedResponse = new Info(403, "Parent folder can not be accessed!",
@@ -414,13 +410,13 @@ namespace Fossology\UI\Api\Test\Controllers
         ->withArgs(array($parentFolder, $folderName, $folderDescription))
         ->andReturn(4);
       $requestHeaders = new Headers();
-      $requestHeaders->set('parentFolder', $parentFolder);
-      $requestHeaders->set('folderName', $folderName);
-      $requestHeaders->set('folderDescription', $folderDescription);
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parentFolder', $parentFolder);
+      $requestHeaders->setHeader('folderName', $folderName);
+      $requestHeaders->setHeader('folderDescription', $folderDescription);
+      $body = $this->streamFactory->createStream();
       $request = new Request("POST", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
       $actualResponse = $this->folderController->createFolder($request,
         $response, []);
       $expectedResponse = new Info(200, "Folder $folderName already exists!",
@@ -445,7 +441,7 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->deletePlugin->shouldReceive('Delete')
         ->withArgs(array("2 $folderId", $this->userId))->andReturnNull();
       $actualResponse = $this->folderController->deleteFolder(null,
-        new Response(), ["id" => $folderId]);
+        new ResponseHelper(), ["id" => $folderId]);
       $expectedResponse = new Info(202, "Folder, \"$folderName\" deleted.",
         InfoType::INFO);
       $this->assertEquals($expectedResponse->getCode(),
@@ -465,7 +461,7 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderDao->shouldReceive('getFolder')
         ->withArgs(array($folderId))->andReturnNull();
       $actualResponse = $this->folderController->deleteFolder(null,
-        new Response(), ["id" => $folderId]);
+        new ResponseHelper(), ["id" => $folderId]);
       $expectedResponse = new Info(404, "Folder id not found!",
         InfoType::ERROR);
       $this->assertEquals($expectedResponse->getCode(),
@@ -489,7 +485,7 @@ namespace Fossology\UI\Api\Test\Controllers
         ->withArgs(array("2 $folderId", $this->userId))
         ->andReturn($errorText);
       $actualResponse = $this->folderController->deleteFolder(null,
-        new Response(), ["id" => $folderId]);
+        new ResponseHelper(), ["id" => $folderId]);
       $expectedResponse = new Info(403, $errorText, InfoType::ERROR);
       $this->assertEquals($expectedResponse->getCode(),
         $actualResponse->getStatusCode());
@@ -514,12 +510,12 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderPropertiesPlugin->shouldReceive('Edit')
         ->withArgs(array($folderId, $folderName, $folderDescription));
       $requestHeaders = new Headers();
-      $requestHeaders->set('name', $folderName);
-      $requestHeaders->set('description', $folderDescription);
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('name', $folderName);
+      $requestHeaders->setHeader('description', $folderDescription);
+      $body = $this->streamFactory->createStream();
       $request = new Request("PATCH", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
       $actualResponse = $this->folderController->editFolder($request,
         $response, ["id" => $folderId]);
       $expectedResponse = new Info(200, 'Folder "' . \Fossology\UI\Api\Controllers\FolderGetName($folderId) .
@@ -542,12 +538,12 @@ namespace Fossology\UI\Api\Test\Controllers
       $folderDescription = "new description";
       $this->folderDao->shouldReceive('getFolder')->andReturnNull();
       $requestHeaders = new Headers();
-      $requestHeaders->set('name', $folderName);
-      $requestHeaders->set('description', $folderDescription);
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('name', $folderName);
+      $requestHeaders->setHeader('description', $folderDescription);
+      $body = $this->streamFactory->createStream();
       $request = new Request("PATCH", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
       $actualResponse = $this->folderController->editFolder($request,
         $response, ["id" => $folderId]);
       $expectedResponse = new Info(404, "Folder id not found!", InfoType::ERROR);
@@ -572,12 +568,12 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderDao->shouldReceive('isFolderAccessible')
         ->withArgs(array($folderId, $this->userId))->andReturn(false);
       $requestHeaders = new Headers();
-      $requestHeaders->set('name', $folderName);
-      $requestHeaders->set('description', $folderDescription);
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('name', $folderName);
+      $requestHeaders->setHeader('description', $folderDescription);
+      $body = $this->streamFactory->createStream();
       $request = new Request("PATCH", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
       $actualResponse = $this->folderController->editFolder($request,
         $response, ["id" => $folderId]);
       $expectedResponse = new Info(403, "Folder is not accessible!",
@@ -611,12 +607,12 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderContentPlugin->shouldReceive('copyContent')
         ->withArgs(array([$folderContentPk], $parentId, true))->andReturn("");
       $requestHeaders = new Headers();
-      $requestHeaders->set('parent', $parentId);
-      $requestHeaders->set('action', "copy");
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parent', $parentId);
+      $requestHeaders->setHeader('action', "copy");
+      $body = $this->streamFactory->createStream();
       $request = new Request("PUT", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
 
       $actualResponse = $this->folderController->copyFolder($request,
         $response, ["id" => $folderId]);
@@ -652,12 +648,12 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderContentPlugin->shouldReceive('copyContent')
         ->withArgs(array([$folderContentPk], $parentId, false))->andReturn("");
       $requestHeaders = new Headers();
-      $requestHeaders->set('parent', $parentId);
-      $requestHeaders->set('action', "move");
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parent', $parentId);
+      $requestHeaders->setHeader('action', "move");
+      $body = $this->streamFactory->createStream();
       $request = new Request("PUT", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
 
       $actualResponse = $this->folderController->copyFolder($request,
         $response, ["id" => $folderId]);
@@ -683,12 +679,12 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderDao->shouldReceive('getFolder')->withArgs(array($folderId))
         ->andReturnNull();
       $requestHeaders = new Headers();
-      $requestHeaders->set('parent', $parentId);
-      $requestHeaders->set('action', "copy");
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parent', $parentId);
+      $requestHeaders->setHeader('action', "copy");
+      $body = $this->streamFactory->createStream();
       $request = new Request("PUT", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
 
       $actualResponse = $this->folderController->copyFolder($request,
         $response, ["id" => $folderId]);
@@ -715,12 +711,12 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderDao->shouldReceive('getFolder')->withArgs(array($parentId))
         ->andReturnNull();
       $requestHeaders = new Headers();
-      $requestHeaders->set('parent', $parentId);
-      $requestHeaders->set('action', "copy");
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parent', $parentId);
+      $requestHeaders->setHeader('action', "copy");
+      $body = $this->streamFactory->createStream();
       $request = new Request("PUT", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
 
       $actualResponse = $this->folderController->copyFolder($request,
         $response, ["id" => $folderId]);
@@ -747,12 +743,12 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderDao->shouldReceive('isFolderAccessible')
         ->withArgs(array($folderId, $this->userId))->andReturn(false);
       $requestHeaders = new Headers();
-      $requestHeaders->set('parent', $parentId);
-      $requestHeaders->set('action', "copy");
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parent', $parentId);
+      $requestHeaders->setHeader('action', "copy");
+      $body = $this->streamFactory->createStream();
       $request = new Request("PUT", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
 
       $actualResponse = $this->folderController->copyFolder($request,
         $response, ["id" => $folderId]);
@@ -781,12 +777,12 @@ namespace Fossology\UI\Api\Test\Controllers
       $this->folderDao->shouldReceive('isFolderAccessible')
         ->withArgs(array("$parentId", $this->userId))->andReturn(false);
       $requestHeaders = new Headers();
-      $requestHeaders->set('parent', $parentId);
-      $requestHeaders->set('action', "copy");
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parent', $parentId);
+      $requestHeaders->setHeader('action', "copy");
+      $body = $this->streamFactory->createStream();
       $request = new Request("PUT", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
 
       $actualResponse = $this->folderController->copyFolder($request,
         $response, ["id" => $folderId]);
@@ -814,12 +810,12 @@ namespace Fossology\UI\Api\Test\Controllers
         ->withArgs(array(M::anyOf($folderId, "$parentId"),
           $this->userId))->andReturn(true);
       $requestHeaders = new Headers();
-      $requestHeaders->set('parent', $parentId);
-      $requestHeaders->set('action', "somethingrandom");
-      $body = new Body(fopen('php://temp', 'r+'));
+      $requestHeaders->setHeader('parent', $parentId);
+      $requestHeaders->setHeader('action', "somethingrandom");
+      $body = $this->streamFactory->createStream();
       $request = new Request("PUT", new Uri("HTTP", "localhost"),
         $requestHeaders, [], [], $body);
-      $response = new Response();
+      $response = new ResponseHelper();
 
       $actualResponse = $this->folderController->copyFolder($request,
         $response, ["id" => $folderId]);

@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- * Copyright (C) 2014-2017 Siemens AG
- * Author: J.Najjar
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+/*
+ SPDX-FileCopyrightText: © 2014-2017 Siemens AG
+ Author: J.Najjar
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Dao\UploadDao;
@@ -25,7 +14,8 @@ use Fossology\Lib\Dao\UploadDao;
  * @abstract
  * @brief Base class for histogram plugins
  */
-abstract class HistogramBase extends FO_Plugin {
+abstract class HistogramBase extends FO_Plugin
+{
   /** @var string
    * Name of agent serving the histogram
    */
@@ -74,8 +64,7 @@ abstract class HistogramBase extends FO_Plugin {
     $out = array("type" => $type, "sorting" => $sorting, "uploadId" => $uploadId,
         "uploadTreeId" => $uploadTreeId, "agentId" => $agentId, "filter" => $filter, "description" => $description);
     $typeDescriptor = "";
-    if($type !== "statement")
-    {
+    if ($type !== "statement" || $type !== 'scancode_statement') {
       $typeDescriptor = $description;
     }
     $output = "<h4>Activated $typeDescriptor statements:</h4>
@@ -174,8 +163,7 @@ abstract class HistogramBase extends FO_Plugin {
     Solution: if $ChildCount == 0, then just view the license!
     $ChildCount can also be zero if the directory is empty.
      ***************************************/
-    if ($ChildCount == 0)
-    {
+    if ($ChildCount == 0) {
       $isADirectory = $this->isADirectory($Uploadtree_pk);
       if ($isADirectory) {
         return;
@@ -210,8 +198,7 @@ abstract class HistogramBase extends FO_Plugin {
     $filter = GetParm("filter",PARM_STRING);
 
     /* check upload permissions */
-    if (!$this->uploadDao->isAccessible($uploadId, Auth::getGroupId()))
-    {
+    if (!$this->uploadDao->isAccessible($uploadId, Auth::getGroupId())) {
       $text = _("Permission Denied");
       return "<h2>$text</h2>";
     }
@@ -225,8 +212,7 @@ abstract class HistogramBase extends FO_Plugin {
     /************************/
 
     $this->vars['dir2browse'] =  Dir2Browse($this->Name,$item,NULL,1,"Browse",-1,'','',$uploadtree_tablename);
-    if (empty($uploadId))
-    {
+    if (empty($uploadId)) {
       return 'no item selected';
     }
 
@@ -234,14 +220,12 @@ abstract class HistogramBase extends FO_Plugin {
     $dataset = $this->agentName."_dataset";
     $arstable = $this->agentName."_ars";
     /* get proper agent_id */
-    $agentId = GetParm("agent", PARM_INTEGER);
-    if (empty($agentId))
-    {
+    // $agentId = GetParm("agent", PARM_INTEGER);
+    if (empty($agentId)) {
       $agentId = LatestAgentpk($uploadId, $arstable);
     }
 
-    if ($agentId == 0)
-    {
+    if ($agentId == 0) {
       /* schedule copyright */
       $OutBuf .= ActiveHTTPscript("Schedule");
       $OutBuf .= "<script language='javascript'>\n";
@@ -265,11 +249,10 @@ abstract class HistogramBase extends FO_Plugin {
       return;
     }
 
-    $AgentSelect = AgentSelect($this->agentName, $uploadId, $dataset, $agentId, "onchange=\"addArsGo('newds', 'copyright_dataset');\"");
+    $AgentSelect = AgentSelect($this->agentName, $uploadId, $dataset, $agentId, "onchange=\"addArsGo('newds', $dataset);\"");
 
     /* change the copyright  result when selecting one version of copyright */
-    if (!empty($AgentSelect))
-    {
+    if (!empty($AgentSelect)) {
       $action = Traceback_uri() . '?mod=' . GetParm('mod',PARM_RAW) . Traceback_parm_keep(array('upload','item'));
 
       $OutBuf .= "<script type='text/javascript'>
@@ -288,8 +271,7 @@ abstract class HistogramBase extends FO_Plugin {
 
     $selectKey = $filter == 'nolic' ? 'nolic' : 'all';
     $OutBuf .= "<select name='view_filter' class='form-control-sm' id='view_filter' onchange='ChangeFilter(this,$uploadId, $item);'>";
-    foreach(array('all'=>_("Show all"), 'nolic'=> _("Show files without licenses")) as $key=>$text)
-    {
+    foreach (array('all'=>_("Show all"), 'nolic'=> _("Show files without licenses")) as $key=>$text) {
       $selected = ($selectKey == $key) ? "selected" : "";
       $OutBuf .= "<option $selected value=\"$key\">$text</option>";
     }
@@ -321,19 +303,15 @@ abstract class HistogramBase extends FO_Plugin {
     $ChildCount = 0;
     $ChildLicCount = 0;
     $ChildDirCount = 0; /* total number of directory or containers */
-    foreach ($Children as $c)
-    {
-      if (Iscontainer($c['ufile_mode']))
-      {
+    foreach ($Children as $c) {
+      if (Iscontainer($c['ufile_mode'])) {
         $ChildDirCount++;
       }
     }
 
     $VF .= "<table border=0>";
-    foreach ($Children as $child)
-    {
-      if (empty($child))
-      {
+    foreach ($Children as $child) {
+      if (empty($child)) {
         continue;
       }
       $ChildCount++;
@@ -341,22 +319,18 @@ abstract class HistogramBase extends FO_Plugin {
       global $Plugins;
       $ModLicView = &$Plugins[plugin_find_id($this->viewName)];
       /* Determine the hyperlink for non-containers to view-license  */
-      if (!empty($child['pfile_fk']) && !empty($ModLicView))
-      {
+      if (!empty($child['pfile_fk']) && !empty($ModLicView)) {
         $LinkUri = Traceback_uri();
         $LinkUri .= "?mod=".$this->viewName."&agent=$Agent_pk&upload=$upload_pk&item=$child[uploadtree_pk]";
-      } else
-      {
+      } else {
         $LinkUri = NULL;
       }
 
       /* Determine link for containers */
-      if (Iscontainer($child['ufile_mode']))
-      {
+      if (Iscontainer($child['ufile_mode'])) {
         $uploadtree_pk = DirGetNonArtifact($child['uploadtree_pk'], $uploadtree_tablename);
         $LicUri = "$Uri&item=" . $uploadtree_pk;
-      } else
-      {
+      } else {
         $LicUri = NULL;
       }
 
@@ -365,18 +339,14 @@ abstract class HistogramBase extends FO_Plugin {
       $LicCount = 0;
 
       $cellContent = Isdir($child['ufile_mode']) ? $child['ufile_name'].'/' : $child['ufile_name'];
-      if (Iscontainer($child['ufile_mode']))
-      {
+      if (Iscontainer($child['ufile_mode'])) {
         $cellContent = "<a class='btn btn-outline-secondary btn-sm' href='$LicUri'><b>$cellContent</b></a>";
-      }
-      else if (!empty($LinkUri)) //  && ($LicCount > 0))
-      {
+      } elseif (!empty($LinkUri)) { //  && ($LicCount > 0))
         $cellContent = "<a class='btn btn-outline-secondary btn-sm' href='$LinkUri'>$cellContent</a>";
       }
       $VF .= "<tr><td id='$child[uploadtree_pk]' align='left'>$cellContent</td><td>";
 
-      if ($LicCount)
-      {
+      if ($LicCount) {
         $VF .= "[" . number_format($LicCount, 0, "", ",") . "&nbsp;";
         $VF .= "license" . ($LicCount == 1 ? "" : "s");
         $VF .= "</a>";
@@ -405,7 +375,8 @@ abstract class HistogramBase extends FO_Plugin {
    * @brief Get sorting orders
    * @return string[][]
    */
-  public function returnSortOrder () {
+  public static function returnSortOrder ()
+  {
     $defaultOrder = array (
         array(0, "desc"),
         array(1, "desc"),
@@ -427,5 +398,4 @@ abstract class HistogramBase extends FO_Plugin {
    * @return string JavaScript block
    */
   abstract protected function createScriptBlock();
-
 }

@@ -1,20 +1,9 @@
 <?php
 /*
-Copyright (C) 2012-2014 Hewlett-Packard Development Company, L.P.
-Copyright (C) 2015 Siemens AG
+ SPDX-FileCopyrightText: © 2012-2014 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2015 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 use Fossology\Lib\Test\TestInstaller;
@@ -29,7 +18,7 @@ class test_fo_copyright_list extends \PHPUnit\Framework\TestCase
   /** @var TestInstaller */
   private $testInstaller;
 
-  protected function setUp()
+  protected function setUp() : void
   {
     $this->testDb = new TestPgDb("fossclitest");
     $tables = array('users','upload','uploadtree_a','uploadtree','copyright','groups','group_user_member','agent','copyright_decision','copyright_ars','ars_master','copyright_event');
@@ -37,6 +26,7 @@ class test_fo_copyright_list extends \PHPUnit\Framework\TestCase
     $this->testDb->createInheritedTables(array('uploadtree_a'));
     $this->testDb->createInheritedArsTables(array('copyright'));
     $this->testDb->insertData($tables);
+    $this->testDb->setupSysconfig();
 
     $sysConf = $this->testDb->getFossSysConf();
     $this->fo_copyright_list_path = dirname(__DIR__) . '/fo_copyright_list -c '.$sysConf;
@@ -45,7 +35,7 @@ class test_fo_copyright_list extends \PHPUnit\Framework\TestCase
     $this->testInstaller->init();
   }
 
-  protected function tearDown()
+  protected function tearDown() : void
   {
     return;
     $this->testInstaller->clear();
@@ -67,7 +57,7 @@ class test_fo_copyright_list extends \PHPUnit\Framework\TestCase
     $this->assertEquals("B.zip/B/1b/AAL_B: copyright (c) 2002 by author", $output[22]);
   }
 
-  function test_get_copryright_list_email()
+  function test_get_copyright_list_email()
   {
     $upload_id = 2;
     $auth = "--user fossy --password fossy";
@@ -79,7 +69,7 @@ class test_fo_copyright_list extends \PHPUnit\Framework\TestCase
     $this->assertEquals("B.zip/B/1b/3DFX_B: info@3dfx.com", $output[7]);
   }
 
-  function test_get_copryright_list_withoutContainer()
+  function test_get_copyright_list_withoutContainer()
   {
     $upload_id = 2;
     $auth = "--user fossy --password fossy";

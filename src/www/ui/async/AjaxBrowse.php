@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- * Copyright (C) 2014-2015 Siemens AG
- * Author: J.Najjar, S. Weber
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+/*
+ SPDX-FileCopyrightText: © 2014-2015 Siemens AG
+ Author: J.Najjar, S. Weber
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 namespace Fossology\UI\Ajax;
 
@@ -175,7 +164,17 @@ class AjaxBrowse extends DefaultPlugin
     }
 
     $itemId = Isartifact($row['ufile_mode']) ? DirGetNonArtifact($row['uploadtree_pk']) : $row['uploadtree_pk'];
-
+    if (strlen($fileName) > 20) {
+      $splitFileName = str_split($fileName, 20);
+      $fileName = "";
+      foreach ($splitFileName as $key => $value) {
+        if (strlen($value) > 3 && $key > 0) {
+          $fileName .= "<br/>".$value;
+        } else {
+          $fileName = $fileName.$value;
+        }
+      }
+    }
     $nameColumn = "<strong class='btn btn-sm font-weight-bold' style='margin-left:10px;font-size:11pt;'>$fileName</strong>";
     if (IsContainer($row['ufile_mode'])) {
       $nameColumn = "<a href='$uri&upload=$uploadId&folder=$folder&item=$itemId&show=$show'>$nameColumn</a>";
@@ -248,7 +247,7 @@ class AjaxBrowse extends DefaultPlugin
 
   private function createSelect($id,$options,$select='',$action='')
   {
-    $html = "<select class='form-control-sm' name=\"$id\" id=\"$id\" $action class=\"ui-render-select2\">";
+    $html = "<select class='form-control-sm' style=\"max-width:250px;\" name=\"$id\" id=\"$id\" $action class=\"ui-render-select2\">";
     foreach ($options as $key=>$disp) {
       $html .= '<option value="'.$key.'"';
       if ($key == $select) {

@@ -1,20 +1,10 @@
 <?php
-/***********************************************************
- * Copyright (C) 2014-2018, Siemens AG
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+/*
+ SPDX-FileCopyrightText: © 2014-2018 Siemens AG
+
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 use Fossology\Lib\Plugin\AgentPlugin;
 use Symfony\Component\HttpFoundation\Request;
@@ -46,12 +36,15 @@ class DeciderAgentPlugin extends AgentPlugin
    */
   public function renderContent(&$vars)
   {
+    global $SysConf;
     $renderer = $GLOBALS['container']->get('twig.environment');
     $vars['isNinkaInstalled'] = false;
     if ($ninkaUi=plugin_find('agent_ninka')) {
       $vars['isNinkaInstalled'] = $ninkaUi->isNinkaInstalled();
     }
-    return $renderer->loadTemplate('agent_decider.html.twig')->render($vars);
+    $vars['isSpacyInstalled'] = file_exists("/home/" .
+      $SysConf['DIRECTORIES']['PROJECTUSER'] . "/pythondeps/bin/spacy");
+    return $renderer->load('agent_decider.html.twig')->render($vars);
   }
 
   /**
@@ -114,6 +107,13 @@ class DeciderAgentPlugin extends AgentPlugin
         case 'wipScannerUpdates':
           $this->addScannerDependencies($dependencies, $request);
           $rulebits |= 0x8;
+          break;
+        case 'copyrightDeactivation':
+          $rulebits |= 0x20;
+          break;
+        case 'copyrightDeactivationClutterRemoval':
+          $rulebits |= 0x40;
+          break;
       }
     }
 

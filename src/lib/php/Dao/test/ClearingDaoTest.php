@@ -1,20 +1,9 @@
 <?php
 /*
-Copyright (C) 2014-2015, Siemens AG
-Author: Andreas Würl, Johannes Najjar
+ SPDX-FileCopyrightText: © 2014-2015 Siemens AG
+ Author: Andreas Würl, Johannes Najjar
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 namespace Fossology\Lib\Dao;
@@ -48,7 +37,7 @@ class ClearingDaoTest extends \PHPUnit\Framework\TestCase
   private $groupId = 601;
 
 
-  protected function setUp()
+  protected function setUp() : void
   {
     $this->uploadDao = M::mock(UploadDao::class);
 
@@ -194,7 +183,7 @@ class ClearingDaoTest extends \PHPUnit\Framework\TestCase
     }
   }
 
-  function tearDown()
+  function tearDown() : void
   {
     $this->testDb = null;
     $this->dbManager = null;
@@ -224,6 +213,8 @@ class ClearingDaoTest extends \PHPUnit\Framework\TestCase
     $itemTreeBounds->shouldReceive('getUploadId')->andReturn($this->items[301][0]);
     $itemTreeBounds->shouldReceive('getLeft')->andReturn($this->items[301][4]);
     $itemTreeBounds->shouldReceive('getRight')->andReturn($this->items[301][5]);
+    $this->uploadDao->shouldReceive('getGlobalDecisionSettingsFromInfo')
+      ->withArgs([$this->items[301][0]])->andReturn(false);
 
     $events1 = $this->clearingDao->getRelevantClearingEvents($itemTreeBounds, $groupId);
 
@@ -246,17 +237,17 @@ class ClearingDaoTest extends \PHPUnit\Framework\TestCase
     $this->buildDecisions(array(
         array(301,1,$groupId,DecisionTypes::IDENTIFIED,-90,DecisionScopes::REPO,array($firstEventId,$firstEventId+1))
     ));
-    $watchThis = $this->clearingDao->isDecisionWip(301, $groupId);
+    $watchThis = $this->clearingDao->isDecisionCheck(301, $groupId, DecisionTypes::WIP);
     assertThat($watchThis,is(FALSE));
-    $watchOther = $this->clearingDao->isDecisionWip(303, $groupId);
+    $watchOther = $this->clearingDao->isDecisionCheck(303, $groupId, DecisionTypes::WIP);
     assertThat($watchOther,is(FALSE));
     $this->buildProposals(array(
         array(301,1,$groupId,403,false,-89),
     ),$firstEventId+3);
     $this->clearingDao->markDecisionAsWip(301, 1, $groupId);
-    $watchThisNow = $this->clearingDao->isDecisionWip(301, $groupId);
+    $watchThisNow = $this->clearingDao->isDecisionCheck(301, $groupId, DecisionTypes::WIP);
     assertThat($watchThisNow,is(TRUE));
-    $watchOtherNow = $this->clearingDao->isDecisionWip(303, $groupId);
+    $watchOtherNow = $this->clearingDao->isDecisionCheck(303, $groupId, DecisionTypes::WIP);
     assertThat($watchOtherNow,is(FALSE));
   }
 
@@ -392,6 +383,9 @@ class ClearingDaoTest extends \PHPUnit\Framework\TestCase
     $treeBounds->shouldReceive('getUploadTreeTableName')->andReturn("uploadtree");
     $treeBounds->shouldReceive('getUploadId')->andReturn(102);
 
+    $this->uploadDao->shouldReceive('getGlobalDecisionSettingsFromInfo')
+      ->withArgs([102])->andReturn(false);
+
     $map = $this->clearingDao->getClearedLicenseIdAndMultiplicities($treeBounds, $groupId);
     assertThat($map, is(array('FOO'=>array('count'=>2,'shortname'=>'FOO','rf_pk'=>401))));
   }
@@ -415,6 +409,9 @@ class ClearingDaoTest extends \PHPUnit\Framework\TestCase
     $treeBounds->shouldReceive('getRight')->andReturn(8);
     $treeBounds->shouldReceive('getUploadTreeTableName')->andReturn("uploadtree");
     $treeBounds->shouldReceive('getUploadId')->andReturn(102);
+
+    $this->uploadDao->shouldReceive('getGlobalDecisionSettingsFromInfo')
+      ->withArgs([102])->andReturn(false);
 
     $map = $this->clearingDao->getClearedLicenses($treeBounds, $groupId);
     assertThat($map, equalTo(array(new LicenseRef($rf,'FOO','foo full'))));

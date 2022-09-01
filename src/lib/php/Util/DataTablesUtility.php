@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- * Copyright (C) 2014 Siemens AG
- * Author: J.Najjar
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+/*
+ SPDX-FileCopyrightText: © 2014 Siemens AG
+ Author: J.Najjar
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 namespace Fossology\Lib\Util;
 
@@ -42,7 +31,7 @@ class DataTablesUtility
   {
     if (array_key_exists('iSortingCols', $inputArray)) {
       if ($inputArray['iSortingCols'] > count($columNamesInDatabase)) {
-        $this->logger->addWarning(
+        $this->logger->warning(
           "did have enough columNames for " . $inputArray['iSortingCols'] .
           " sort columns.");
         return null;
@@ -50,7 +39,7 @@ class DataTablesUtility
       return $this->getSortingParametersFromArrayImpl($inputArray,
         $columNamesInDatabase, $defaultSearch);
     } else {
-      $this->logger->addWarning("did not find iSortingCols in inputArray");
+      $this->logger->warning("did not find iSortingCols in inputArray");
       return null;
     }
   }

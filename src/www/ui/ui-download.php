@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- Copyright (C) 2008-2013 Hewlett-Packard Development Company, L.P.
- Copyright (C) 2015 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2008-2013 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2015 Siemens AG
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Dao\UploadDao;
@@ -50,7 +39,8 @@ class ui_download extends FO_Plugin
   {
     global $SysConf;
     $text = _("Download this file");
-    if ($_SESSION[Auth::USER_LEVEL] >= $SysConf['SYSCONFIG']['SourceCodeDownloadRights']) {
+    if (array_key_exists(Auth::USER_LEVEL, $_SESSION) &&
+      $_SESSION[Auth::USER_LEVEL] >= $SysConf['SYSCONFIG']['SourceCodeDownloadRights']) {
       menu_insert("Browse-Pfile::Download",0,$this->Name,$text);
     }
 
@@ -203,8 +193,8 @@ class ui_download extends FO_Plugin
 
   /**
    * @global type $container
-   * @param type $path
-   * @param type $filename
+   * @param string $path
+   * @param string $filename
    * @return BinaryFileResponse
    */
   protected function downloadFile($path, $filename)
@@ -219,9 +209,7 @@ class ui_download extends FO_Plugin
 
     $response = new BinaryFileResponse($path);
     $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $filename, $filenameFallback);
-    if (pathinfo($filename, PATHINFO_EXTENSION) == 'docx') {
-      $response->headers->set('Content-Type', ''); // otherwise mineType would be zip
-    }
+    $response->headers->set('Content-Type', $response->getFile()->getMimeType());
 
     $logger = $container->get("logger");
     $logger->pushHandler(new NullHandler(Logger::DEBUG));

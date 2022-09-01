@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- Copyright (C) 2008-2014 Hewlett-Packard Development Company, L.P.
- Copyright (C) 2015, 2018 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2008-2014 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2015, 2018 Siemens AG
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-***********************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 namespace Fossology\UI\Page;
 
@@ -163,6 +152,8 @@ class UploadSrvPage extends UploadPageBase
       return array(false, $uploadErrors[UPLOAD_ERR_INVALID_FOLDER_PK], $description);
     }
 
+    $setGlobal = ($request->get('globalDecisions')) ? 1 : 0;
+
     $public = $request->get('public');
     $publicPermission = ($public == self::PUBLIC_ALL) ? Auth::PERM_READ : Auth::PERM_NONE;
 
@@ -233,7 +224,7 @@ class UploadSrvPage extends UploadPageBase
     $userId = Auth::getUserId();
     $groupId = Auth::getGroupId();
     $uploadId = JobAddUpload($userId, $groupId, $shortName, $sourceFiles,
-      $description, $uploadMode, $folderId, $publicPermission);
+      $description, $uploadMode, $folderId, $publicPermission, $setGlobal);
 
     if (empty($uploadId)) {
       $text = _("Failed to insert upload record");
@@ -271,17 +262,7 @@ class UploadSrvPage extends UploadPageBase
       return array(false, $text, _($ErrorMsg));
     }
 
-    AgentCheckBoxDo($jobpk, $uploadId);
-
-    $message = "";
-    /** check if the scheudler is running */
-    $status = GetRunnableJobList();
-    if (empty($status)) {
-      $message .= _("Is the scheduler running? ");
-    }
-    $Url = Traceback_uri() . "?mod=showjobs&upload=$uploadId";
-    $message .= "The file $sourceFiles has been uploaded. ";
-    $keep = "It is <a href='$Url'>upload #" . $uploadId . "</a>.\n";
+    $message = $this->postUploadAddJobs($request, $Name, $uploadId, $jobpk);
     return array(true, $message.$keep, $description, $uploadId);
   }
 }

@@ -1,20 +1,9 @@
 <?php
-/***************************************************************
-Copyright (C) 2017 Siemens AG
+/*
+ SPDX-FileCopyrightText: © 2017 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * @file
@@ -251,11 +240,11 @@ FROM $tableName WHERE $idRowName = $1", [$id],
   {
     if ($id == null) {
       $usersSQL = "SELECT user_pk, user_name, user_desc, user_email,
-                  email_notify, root_folder_fk, user_perm, user_agent_list FROM users;";
+                  email_notify, root_folder_fk, group_fk, user_perm, user_agent_list, default_bucketpool_fk FROM users;";
       $statement = __METHOD__ . ".getAllUsers";
     } else {
       $usersSQL = "SELECT user_pk, user_name, user_desc, user_email,
-                email_notify, root_folder_fk, user_perm, user_agent_list FROM users
+                email_notify, root_folder_fk, group_fk, user_perm, user_agent_list, default_bucketpool_fk FROM users
                 WHERE user_pk = $1;";
       $statement = __METHOD__ . ".getSpecificUser";
     }
@@ -274,10 +263,10 @@ FROM $tableName WHERE $idRowName = $1", [$id],
         ($row["user_pk"] == $currentUser)) {
         $user = new User($row["user_pk"], $row["user_name"], $row["user_desc"],
           $row["user_email"], $row["user_perm"], $row["root_folder_fk"],
-          $row["email_notify"], $row["user_agent_list"]);
+          $row["email_notify"], $row["user_agent_list"], $row["group_fk"], $row["default_bucketpool_fk"]);
       } else {
         $user = new User($row["user_pk"], $row["user_name"], $row["user_desc"],
-          null, null, null, null, null);
+          null, null, null, null, null, null);
       }
       $users[] = $user->getArray();
     }
@@ -357,6 +346,77 @@ FROM $tableName WHERE $idRowName = $1", [$id],
   }
 
   /**
+   * @brief Get the recent jobs created by an user.
+   *
+   * If a limit is passed, the results are trimmed. If an ID is passed, the
+   * information for the given id is only retrieved.
+   *
+   * @param integer $id       Set to get information of only given job id
+   * @param integer $uid      Set to get information of only given user's ID
+   * @param integer $limit    Set to limit the result length
+   * @param integer $page     Page number required
+   * @param integer $uploadId Upload ID to be filtered
+   * @return array[] List of jobs at first index and total number of pages at
+   *         second.
+   */
+  public function getUserJobs($id = null, $uid=null, $limit = 0, $page = 1, $uploadId = null)
+  {
+    $jobSQL = "SELECT job_pk, job_queued, job_name, job_upload_fk," .
+      " job_user_fk, job_group_fk FROM job WHERE job_user_fk=$1";
+    $totalJobSql = "SELECT count(*) AS cnt FROM job WHERE job_user_fk=$1";
+    $filter = "";
+    $pagination = "";
+    $params = [];
+    $params[] = $uid;
+    $statement = __METHOD__ . ".getUserJobs";
+    $countStatement = __METHOD__ . ".getJobCount";
+    if ($id == null) {
+      if ($uploadId !== null) {
+        $params[] = $uploadId;
+        $filter = "WHERE job_upload_fk = $" . count($params);
+        $statement .= ".withUploadFilter";
+        $countStatement .= ".withUploadFilter";
+      }
+    } else {
+      $params[] = $id;
+      $filter = "WHERE job_pk = $" . count($params);
+      $statement .= ".withJobFilter";
+      $countStatement .= ".withJobFilter";
+    }
+
+    $result = $this->dbManager->getSingleRow("$totalJobSql $filter;", $params,
+      $countStatement);
+
+    $totalResult = $result['cnt'];
+
+    $offset = ($page - 1) * $limit;
+    if ($limit > 0) {
+      $params[] = $limit;
+      $pagination = "LIMIT $" . count($params);
+      $params[] = $offset;
+      $pagination .= " OFFSET $" . count($params);
+      $statement .= ".withLimit";
+      $totalResult = ceil($totalResult / $limit);
+    } else {
+      $totalResult = 1;
+    }
+
+    $jobs = [];
+    $result = $this->dbManager->getRows("$jobSQL $filter $pagination;", $params,
+      $statement);
+    foreach ($result as $row) {
+      $job = new Job($row["job_pk"]);
+      $job->setName($row["job_name"]);
+      $job->setQueueDate($row["job_queued"]);
+      $job->setUploadId($row["job_upload_fk"]);
+      $job->setUserId($row["job_user_fk"]);
+      $job->setGroupId($row["job_group_fk"]);
+      $jobs[] = $job;
+    }
+    return [$jobs, $totalResult];
+  }
+
+  /**
    * Get the required information to validate a token based on token id.
    *
    * @param int $tokenId Token id (primary key of the table).
@@ -365,7 +425,7 @@ FROM $tableName WHERE $idRowName = $1", [$id],
    */
   public function getTokenKey($tokenId)
   {
-    $sql = "SELECT token_key, created_on, expire_on, user_fk, active, token_scope " .
+    $sql = "SELECT token_key, client_id, created_on, expire_on, user_fk, active, token_scope " .
       "FROM personal_access_tokens WHERE pat_pk = $1;";
     return $this->dbManager->getSingleRow($sql, [$tokenId],
       __METHOD__ . ".getTokenSecret");
@@ -413,6 +473,24 @@ FROM $tableName WHERE $idRowName = $1", [$id],
     return $this->dbManager->getSingleRow($sql, [
       $userId, $expire, $scope, $name, $key
     ], __METHOD__ . ".insertNewToken");
+  }
+
+  /**
+   * Adds new oauth client to the user.
+   *
+   * @param string  $name     Name of the new client
+   * @param integer $userId   User PK
+   * @param string  $clientId New client ID
+   * @param string  $scope    Token scope
+   */
+  public function addNewClient($name, $userId, $clientId, $scope)
+  {
+    $sql = "INSERT INTO personal_access_tokens" .
+      "(user_fk, created_on, token_scope, token_name, client_id, active)" .
+      "VALUES ($1, NOW(), $2, $3, $4, true);";
+    $this->dbManager->getSingleRow($sql, [
+      $userId, $scope, $name, $clientId
+    ], __METHOD__);
   }
 
   /**
@@ -566,5 +644,22 @@ FROM $tableName WHERE $idRowName = $1", [$id],
     $statement = __METHOD__ . ".getLicenseCount.$kind";
     $result = $this->dbManager->getSingleRow($sql, $params, $statement);
     return intval($result['total']);
+  }
+
+  /*
+   * Get the OAuth token ID from a client id
+   *
+   * @param string $clientId Client ID to get info for
+   * @return integer Token ID
+   */
+  public function getTokenIdFromClientId($clientId)
+  {
+    $sql = "SELECT pat_pk FROM personal_access_tokens " .
+      "WHERE client_id = $1;";
+    $result = $this->dbManager->getSingleRow($sql, [$clientId], __METHOD__);
+    if (!empty($result)) {
+      return $result['pat_pk'];
+    }
+    return null;
   }
 }

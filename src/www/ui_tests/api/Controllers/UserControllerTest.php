@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- * Copyright (C) 2020 Siemens AG
- * Author: Gaurav Mishra <mishra.gaurav@siemens.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+/*
+ SPDX-FileCopyrightText: © 2020 Siemens AG
+ Author: Gaurav Mishra <mishra.gaurav@siemens.com>
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Tests for UserController
@@ -27,13 +16,14 @@ require_once dirname(dirname(dirname(dirname(__DIR__)))) .
   '/lib/php/Plugin/FO_Plugin.php';
 
 use Mockery as M;
-use Slim\Http\Response;
 use Fossology\UI\Api\Controllers\UserController;
 use Fossology\UI\Api\Helper\DbHelper;
 use Fossology\UI\Api\Helper\RestHelper;
 use Fossology\UI\Api\Models\User;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
+use Fossology\UI\Api\Helper\ResponseHelper;
+use Fossology\Lib\Dao\UserDao;
 
 /**
  * @class UserControllerTest
@@ -64,14 +54,17 @@ class UserControllerTest extends \PHPUnit\Framework\TestCase
    * @brief Setup test objects
    * @see PHPUnit_Framework_TestCase::setUp()
    */
-  protected function setUp()
+  protected function setUp() : void
   {
     global $container;
     $container = M::mock('ContainerBuilder');
     $this->dbHelper = M::mock(DbHelper::class);
     $this->restHelper = M::mock(RestHelper::class);
+    $this->userDao = M::mock(UserDao::class);
 
     $this->restHelper->shouldReceive('getDbHelper')->andReturn($this->dbHelper);
+    $this->restHelper->shouldReceive('getUserDao')
+      ->andReturn($this->userDao);  
 
     $container->shouldReceive('get')->withArgs(array(
       'helper.restHelper'))->andReturn($this->restHelper);
@@ -83,7 +76,7 @@ class UserControllerTest extends \PHPUnit\Framework\TestCase
    * @brief Remove test objects
    * @see PHPUnit_Framework_TestCase::tearDown()
    */
-  protected function tearDown()
+  protected function tearDown() : void
   {
     $this->addToAssertionCount(
       \Hamcrest\MatcherAssert::getCount() - $this->assertCountBefore);
@@ -121,7 +114,7 @@ class UserControllerTest extends \PHPUnit\Framework\TestCase
         continue;
       }
       $user = new User($userId, "user$userId", "User $userId",
-        "user$userId@example.com", $accessLevel, 2, 4, "");
+        "user$userId@example.com", $accessLevel, 2, 4, "", 2);
       $userArray[] = $user->getArray();
     }
     return $userArray;
@@ -140,8 +133,8 @@ class UserControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs(["users", "user_pk", $userId])->andReturn(true);
     $this->dbHelper->shouldReceive('getUsers')->withArgs([$userId])
       ->andReturn($user);
-    $expectedResponse = (new Response())->withJson($user[0], 200);
-    $actualResponse = $this->userController->getUsers(null, new Response(),
+    $expectedResponse = (new ResponseHelper())->withJson($user[0], 200);
+    $actualResponse = $this->userController->getUsers(null, new ResponseHelper(),
       ['id' => $userId]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
@@ -160,9 +153,9 @@ class UserControllerTest extends \PHPUnit\Framework\TestCase
     $this->dbHelper->shouldReceive('doesIdExist')
       ->withArgs(["users", "user_pk", $userId])->andReturn(false);
     $error = new Info(404, "UserId doesn't exist", InfoType::ERROR);
-    $expectedResponse = (new Response())->withJson($error->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($error->getArray(),
       $error->getCode());
-    $actualResponse = $this->userController->getUsers(null, new Response(),
+    $actualResponse = $this->userController->getUsers(null, new ResponseHelper(),
       ['id' => $userId]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
@@ -180,8 +173,8 @@ class UserControllerTest extends \PHPUnit\Framework\TestCase
     $users = $this->getUsers([2, 3, 4]);
     $this->dbHelper->shouldReceive('getUsers')->withArgs([null])
       ->andReturn($users);
-    $expectedResponse = (new Response())->withJson($users, 200);
-    $actualResponse = $this->userController->getUsers(null, new Response(), []);
+    $expectedResponse = (new ResponseHelper())->withJson($users, 200);
+    $actualResponse = $this->userController->getUsers(null, new ResponseHelper(), []);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),
@@ -200,9 +193,9 @@ class UserControllerTest extends \PHPUnit\Framework\TestCase
       ->withArgs(["users", "user_pk", $userId])->andReturn(true);
     $this->dbHelper->shouldReceive('deleteUser')->withArgs([$userId]);
     $info = new Info(202, "User will be deleted", InfoType::INFO);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
-    $actualResponse = $this->userController->deleteUser(null, new Response(),
+    $actualResponse = $this->userController->deleteUser(null, new ResponseHelper(),
       ['id' => $userId]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
@@ -221,9 +214,9 @@ class UserControllerTest extends \PHPUnit\Framework\TestCase
     $this->dbHelper->shouldReceive('doesIdExist')
       ->withArgs(["users", "user_pk", $userId])->andReturn(false);
     $info = new Info(404, "UserId doesn't exist", InfoType::ERROR);
-    $expectedResponse = (new Response())->withJson($info->getArray(),
+    $expectedResponse = (new ResponseHelper())->withJson($info->getArray(),
       $info->getCode());
-    $actualResponse = $this->userController->deleteUser(null, new Response(),
+    $actualResponse = $this->userController->deleteUser(null, new ResponseHelper(),
       ['id' => $userId]);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
@@ -240,12 +233,15 @@ class UserControllerTest extends \PHPUnit\Framework\TestCase
   {
     $userId = 2;
     $user = $this->getUsers([$userId]);
+    $user[0]["default_group"] = "fossy";
     $this->restHelper->shouldReceive('getUserId')->andReturn($userId);
     $this->dbHelper->shouldReceive('getUsers')->withArgs([$userId])
       ->andReturn($user);
-    $expectedResponse = (new Response())->withJson($user[0], 200);
+    $expectedResponse = (new ResponseHelper())->withJson($user[0], 200);
+    $this->userDao->shouldReceive('getUserAndDefaultGroupByUserName')->withArgs([$user[0]["name"]])
+      ->andReturn(["group_name" => "fossy"]);
     $actualResponse = $this->userController->getCurrentUser(null,
-      new Response(), []);
+      new ResponseHelper(), []);
     $this->assertEquals($expectedResponse->getStatusCode(),
       $actualResponse->getStatusCode());
     $this->assertEquals($this->getResponseJson($expectedResponse),

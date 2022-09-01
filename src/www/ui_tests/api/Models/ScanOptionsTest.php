@@ -1,21 +1,10 @@
 <?php
-/***************************************************************
- * Copyright (C) 2021 Siemens AG
- * Author: Gaurav Mishra <mishra.gaurav@siemens.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***************************************************************/
+/*
+ SPDX-FileCopyrightText: © 2021 Siemens AG
+ Author: Gaurav Mishra <mishra.gaurav@siemens.com>
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 /**
  * @file
  * @brief Tests for Scan model
@@ -28,6 +17,7 @@ namespace Fossology\UI\Api\Test\Models
   use Fossology\UI\Api\Models\ScanOptions;
   use Fossology\UI\Api\Models\Reuser;
   use Fossology\UI\Api\Models\Decider;
+  use Fossology\UI\Api\Models\Scancode;
   use Fossology\Lib\Dao\UserDao;
   use Fossology\Lib\Auth\Auth;
   use Symfony\Component\HttpFoundation\Request;
@@ -60,7 +50,7 @@ namespace Fossology\UI\Api\Test\Models
      * @brief Setup test objects
      * @see PHPUnit_Framework_TestCase::setUp()
      */
-    public function setUp()
+    public function setUp() : void
     {
       global $container;
       $container = M::mock('ContainerBuilder');
@@ -79,7 +69,7 @@ namespace Fossology\UI\Api\Test\Models
         ]);
       self::$functions->shouldReceive('register_plugin')
         ->with(\Hamcrest\Matchers::identicalTo(
-          new ScanOptions(null, null, null)));
+          new ScanOptions(null, null, null, null)));
     }
 
     /**
@@ -142,7 +132,9 @@ namespace Fossology\UI\Api\Test\Models
       $decider->setOjoDecider(true);
       $decider->setNomosMonk(true);
 
-      $scanOption = new ScanOptions($analysis, $reuse, $decider);
+      $scancode = new Scancode();
+
+      $scanOption = new ScanOptions($analysis, $reuse, $decider, $scancode);
 
       $this->userDao->shouldReceive('getGroupIdByName')
         ->withArgs([$groupName])->andReturn($groupId);

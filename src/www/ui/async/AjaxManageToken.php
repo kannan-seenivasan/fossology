@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- * Copyright (C) 2019 Siemens AG
- * Author: Gaurav Mishra <mishra.gaurav@siemens.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- **********************************************************/
+/*
+ SPDX-FileCopyrightText: © 2019 Siemens AG
+ Author: Gaurav Mishra <mishra.gaurav@siemens.com>
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 namespace Fossology\UI\Ajax;
 
 use Fossology\Lib\Db\DbManager;
@@ -86,13 +75,13 @@ class AjaxManageToken extends DefaultPlugin
   }
 
   /**
-   * Regenerate the JWT token from DB.
+   * Regenerate the JWT token from DB, or get the client ID.
    *
    * @param int    $tokenPk  The token id
    * @param string $hostname Host issuing the token
    * @returns array Array with success status and token.
    */
-  private function revealToken($tokenPk, $hostname)
+  function revealToken($tokenPk, $hostname="")
   {
     global $container;
     $restDbHelper = $container->get("helper.dbHelper");
@@ -101,6 +90,12 @@ class AjaxManageToken extends DefaultPlugin
     $jti = "$tokenPk.$user_pk";
 
     $tokenInfo = $restDbHelper->getTokenKey($tokenPk);
+    if (!empty($tokenInfo['client_id'])) {
+      return [
+        "status" => true,
+        "token" => $tokenInfo['client_id']
+      ];
+    }
     $tokenScope = array_search($tokenInfo['token_scope'], RestHelper::SCOPE_DB_MAP);
 
     $jwtToken = $authHelper->generateJwtToken($tokenInfo['expire_on'],

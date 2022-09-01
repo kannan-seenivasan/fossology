@@ -1,20 +1,11 @@
 <?php
-/***********************************************************
- Copyright (C) 2014 Hewlett-Packard Development Company, L.P.
+/*
+ SPDX-FileCopyrightText: © 2014 Hewlett-Packard Development Company, L.P.
+ SPDX-FileCopyrightText: © 2021-2022 Orange
+ Contributors: Piotr Pszczola, Bartlomiej Drozdz
 
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- ***********************************************************/
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Db\DbManager;
@@ -68,14 +59,23 @@ class UserEditPage extends DefaultPlugin
    * 2) User has chosen a user to edit from the 'userid' select list  \n
    * 3) User hit submit to update user data\n
    */
-  protected function handle(Request $request)
+  function handle(Request $request)
   {
+    global $SysConf;
     /* Is the session owner an admin? */
     $user_pk = Auth::getUserId();
     $SessionUserRec = $this->GetUserRec($user_pk);
     $SessionIsAdmin = $this->IsSessionAdmin($SessionUserRec);
     $newToken = "";
+    $newClient = "";
 
+    if (GetParm('new_client', PARM_STRING)) {
+      try {
+        $newClient = $this->addNewClient($request);
+      } catch (\Exception $e) {
+        $newClient = $e->getMessage();
+      }
+    }
     if (GetParm('new_pat', PARM_STRING)) {
       try {
         $newToken = $this->generateNewToken($request);
@@ -127,8 +127,11 @@ class UserEditPage extends DefaultPlugin
     $vars = array_merge($vars, $this->DisplayForm($UserRec, $SessionIsAdmin));
     $vars['userId'] = $UserRec['user_pk'];
     $vars['newToken'] = $newToken;
+    $vars['newClient'] = $newClient;
     $vars['tokenList'] = $this->getListOfActiveTokens();
     $vars['expiredTokenList'] = $this->getListOfExpiredTokens();
+    $vars['clientList'] = $this->getListOfActiveClients();
+    $vars['revokedClientList'] = $this->getListOfExpiredClients();
     $vars['maxTokenDate'] = $this->authHelper->getMaxTokenValidity();
     $vars['writeAccess'] = ($_SESSION[Auth::USER_LEVEL] >= 3);
     $vars['policyRegex'] = generate_password_policy();
@@ -139,6 +142,15 @@ class UserEditPage extends DefaultPlugin
     if ($policy != "No policy defined.") {
       $vars['passwordPolicy'] = $policy;
     }
+    $restToken = Auth::getRestTokenType();
+    if ($restToken == Auth::TOKEN_OAUTH) {
+      $restToken = "oauth";
+    } elseif ($restToken == Auth::TOKEN_BOTH) {
+      $restToken = "both";
+    } else {
+      $restToken = "token";
+    }
+    $vars['resttoken'] = $restToken;
 
     return $this->render('user_edit.html.twig', $this->mergeWithDefault($vars));
   }
@@ -152,8 +164,11 @@ class UserEditPage extends DefaultPlugin
    */
   private function DisplayForm($UserRec, $SessionIsAdmin)
   {
+    global $SysConf;
+
     $vars = array('isSessionAdmin' => $SessionIsAdmin,
                   'userId' => $UserRec['user_pk']);
+    $vars['userDescReadOnly'] = $SysConf['SYSCONFIG']['UserDescReadOnly'];
 
     /* For Admins, get the list of all users
      * For non-admins, only show themself
@@ -186,8 +201,16 @@ class UserEditPage extends DefaultPlugin
         );
       $vars['accessLevel'] = $UserRec['user_perm'];
 
+      $vars['allUserStatuses'] = array(
+        "active" => _("Active"),
+        "inactive" => _("Inactive")
+      );
+
+      $vars['userStatus'] = $UserRec['user_status'];
+
       $SelectedFolderPk = $UserRec['root_folder_fk'];
       $vars['folderListOption'] = FolderListOption($ParentFolder = -1, $Depth = 0, $IncludeTop = 1, $SelectedFolderPk);
+
     }
       $SelectedDefaultFolderPk = $UserRec['default_folder_fk'];
       $vars['folderListOption2'] = FolderListOption($ParentFolder = $UserRec['root_folder_fk'], $Depth = 0, $IncludeTop = 1, $SelectedDefaultFolderPk);
@@ -300,7 +323,7 @@ class UserEditPage extends DefaultPlugin
       if ($key[0] == '_' || $key == "user_pk") {
         continue;
       }
-      if (!$SessionIsAdmin && ($key == "user_perm" || $key == "root_folder_fk")) {
+      if (!$SessionIsAdmin && ($key == "user_perm" || $key == "root_folder_fk" || $key == "user_status")) {
         continue;
       }
       if (!$first) {
@@ -341,7 +364,7 @@ class UserEditPage extends DefaultPlugin
    *
    * \return TRUE if the session user is an admin.  Otherwise, return FALSE
    */
-  private function IsSessionAdmin($UserRec)
+  function IsSessionAdmin($UserRec)
   {
     return ($UserRec['user_perm'] == PLUGIN_DB_ADMIN);
   }
@@ -396,12 +419,13 @@ class UserEditPage extends DefaultPlugin
       }
 
       $UserRec['user_perm'] = intval($request->get('user_perm'));
+      $UserRec['user_status'] = stripslashes($request->get('user_status'));
       $UserRec['user_email'] = stripslashes($request->get('user_email'));
       $UserRec['email_notify'] = stripslashes($request->get('email_notify'));
       if (!empty($UserRec['email_notify'])) {
         $UserRec['email_notify'] = 'y';
       }
-      $UserRec['user_agent_list'] = userAgents();
+      $UserRec['user_agent_list'] = is_null($request->get('user_agent_list')) ? userAgents() : $request->get('user_agent_list');
       $UserRec['default_bucketpool_fk'] = intval($request->get("default_bucketpool_fk"));
     }
     return $UserRec;
@@ -417,17 +441,17 @@ class UserEditPage extends DefaultPlugin
    * @uses Fossology::UI::Api::Helper::RestHelper::validateTokenRequest()
    * @uses Fossology::UI::Api::Helper::DbHelper::insertNewTokenKey()
    */
-  private function generateNewToken(Request $request)
+  function generateNewToken(Request $request)
   {
     global $container;
 
     $user_pk = Auth::getUserId();
-    $tokenName = GetParm('pat_name', PARM_STRING);
-    $tokenExpiry = GetParm('pat_expiry', PARM_STRING);
+    $tokenName = $request->get('pat_name');
+    $tokenExpiry = $request->get('pat_expiry');
     if ($_SESSION[Auth::USER_LEVEL] < 3) {
       $tokenScope = 'r';
     } else {
-      $tokenScope = GetParm('pat_scope', PARM_STRING);
+      $tokenScope = $request->get('pat_scope');
     }
     $tokenScope = array_search($tokenScope, RestHelper::SCOPE_DB_MAP);
     $restHelper = $container->get('helper.restHelper');
@@ -469,14 +493,12 @@ class UserEditPage extends DefaultPlugin
    * template. Also check if the token is expired.
    * @return array
    */
-  private function getListOfActiveTokens()
+  function getListOfActiveTokens()
   {
-    global $container;
-
     $user_pk = Auth::getUserId();
     $sql = "SELECT pat_pk, user_fk, expire_on, token_scope, token_name, created_on, active " .
            "FROM personal_access_tokens " .
-           "WHERE user_fk = $1 AND active = true;";
+           "WHERE user_fk = $1 AND active = true AND client_id IS NULL;";
     $rows = $this->dbManager->getRows($sql, [$user_pk],
       __METHOD__ . ".getActiveTokens");
     $response = [];
@@ -500,16 +522,14 @@ class UserEditPage extends DefaultPlugin
    * Get a list of expired tokens for current user.
    * @return array
    */
-  private function getListOfExpiredTokens()
+  function getListOfExpiredTokens()
   {
-    global $container;
-
     $user_pk = Auth::getUserId();
     $sql = "SELECT pat_pk, user_fk, expire_on, token_scope, token_name, created_on " .
       "FROM personal_access_tokens " .
-      "WHERE user_fk = $1 AND active = false;";
+      "WHERE user_fk = $1 AND active = false AND client_id IS NULL;";
     $rows = $this->dbManager->getRows($sql, [$user_pk],
-      __METHOD__ . ".getActiveTokens");
+      __METHOD__ . ".getExpiredTokens");
     $response = [];
     foreach ($rows as $row) {
       $entry = [
@@ -543,6 +563,100 @@ class UserEditPage extends DefaultPlugin
       $options .= ">$groupName</option>";
     }
     return $options;
+  }
+
+  /**
+   * Add new oauth client to user.
+   *
+   * @param Request $request
+   * @throws \UnexpectedValueException Throws an exception if the request is
+   *         not valid.
+   * @return boolean True if no error occured.
+   * @uses Fossology::UI::Api::Helper::RestHelper::validateNewOauthClient()
+   * @uses Fossology::UI::Api::Helper::DbHelper::addNewClient()
+   */
+  private function addNewClient(Request $request)
+  {
+    global $container;
+
+    $user_pk = Auth::getUserId();
+    $clientName = GetParm('client_name', PARM_STRING);
+    $clientId = GetParm('client_id', PARM_STRING);
+    if ($_SESSION[Auth::USER_LEVEL] < 3) {
+      $clientScope = 'r';
+    } else {
+      $clientScope = GetParm('client_scope', PARM_STRING);
+    }
+    $restHelper = $container->get('helper.restHelper');
+    $isTokenRequestValid = $restHelper->validateNewOauthClient($user_pk,
+      $clientName, $clientScope, $clientId);
+
+    if ($isTokenRequestValid !== true) {
+      throw new \UnexpectedValueException($isTokenRequestValid->getMessage());
+    } else {
+      $restHelper->getDbHelper()->addNewClient($clientName, $user_pk,
+        $clientId, $clientScope);
+      return "Client \"$clientName\" added with ID \"$clientId\"";
+    }
+  }
+
+  /**
+   * @brief Get a list of active clients for current user.
+   *
+   * Fetches the clients for current user from DB and format it for twig
+   * template.
+   * @return array
+   */
+  private function getListOfActiveClients()
+  {
+    $user_pk = Auth::getUserId();
+    $sql = "SELECT pat_pk, user_fk, token_scope, token_name, " .
+           "created_on, active, client_id " .
+           "FROM personal_access_tokens " .
+           "WHERE user_fk = $1 AND active = true AND token_key IS NULL;";
+    $rows = $this->dbManager->getRows($sql, [$user_pk],
+      __METHOD__ . ".getActiveClients");
+    $response = [];
+    foreach ($rows as $row) {
+      $entry = [
+        "id" => $row["pat_pk"] . "." . $user_pk,
+        "name" => $row["token_name"],
+        "created" => $row["created_on"],
+        "clientid" => $row["client_id"],
+        "scope" => $row["token_scope"]
+      ];
+      $response[] = $entry;
+    }
+    array_multisort(array_column($response, "created"), SORT_ASC, $response);
+    return $response;
+  }
+
+  /**
+   * Get a list of revoked clients for current user.
+   * @return array
+   */
+  private function getListOfExpiredClients()
+  {
+    $user_pk = Auth::getUserId();
+    $sql = "SELECT pat_pk, user_fk, token_scope, token_name, " .
+           "created_on, active, client_id " .
+           "FROM personal_access_tokens " .
+           "WHERE user_fk = $1 AND active = false AND token_key IS NULL;";
+    $rows = $this->dbManager->getRows($sql, [$user_pk],
+      __METHOD__ . ".getRevokedClients");
+    $response = [];
+    foreach ($rows as $row) {
+      $entry = [
+        "id" => $row["pat_pk"] . "." . $user_pk,
+        "name" => $row["token_name"],
+        "created" => $row["created_on"],
+        "clientid" => $row["client_id"],
+        "scope" => $row["token_scope"]
+      ];
+      $response[] = $entry;
+    }
+    array_multisort(array_column($response, "created"), SORT_ASC, $response);
+    return $response;
   }
 }
 

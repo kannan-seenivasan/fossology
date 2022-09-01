@@ -1,21 +1,10 @@
 <?php
-/***********************************************************
- * Copyright (C) 2014-2017,2020 Siemens AG
- * Copyright (c) 2021 LG Electronics Inc.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- **********************************************************/
+/*
+ SPDX-FileCopyrightText: © 2014-2017, 2020 Siemens AG
+ SPDX-FileCopyrightText: © 2021 LG Electronics Inc.
+
+ SPDX-License-Identifier: GPL-2.0-only
+*/
 
 /**
  * @file
@@ -158,7 +147,7 @@ class UIExportList extends FO_Plugin
       if (GetParm("agentToInclude_".$agent, PARM_STRING)) {
         /* get last nomos agent_pk that has data for this upload */
         $AgentRec = AgentARSList($agent."_ars", $upload_pk, 1);
-        if ($AgentRec !== false) {
+        if (!empty($AgentRec)) {
           $agent_pks[$agent] = $AgentRec[0]["agent_fk"];
         } else {
           $agent_pks[$agent] = false;
@@ -567,6 +556,8 @@ class UIExportList extends FO_Plugin
           $row['agentFindings'][$key] = $row['conclusions'][$key];
         }
         $row['conclusions'] = null;
+      } elseif ($row['agentFindings'] == null) {
+        continue;
       } else {
         foreach ($row['agentFindings'] as $key => $value) {
           if ($value == "No_license_found") {
@@ -583,9 +574,6 @@ class UIExportList extends FO_Plugin
             unset($row['agentFindings'][$key]);
           }
         }
-      }
-      if ($row['agentFindings'] == null) {
-        continue;
       }
       $newLines[] = $row;
     }

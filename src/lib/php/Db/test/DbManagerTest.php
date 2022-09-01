@@ -1,23 +1,13 @@
 <?php
 /*
-Copyright (C) 2014, Siemens AG
+ SPDX-FileCopyrightText: © 2014 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 namespace Fossology\Lib\Db;
 
+use Exception;
 use Mockery as M;
 use Mockery\MockInterface;
 
@@ -30,7 +20,7 @@ abstract class DbManagerTest extends \PHPUnit\Framework\TestCase
   /** @var DbManager */
   protected $dbManager;
 
-  function setUp()
+  function setUp() : void
   {
     $this->driver = M::mock('Fossology\\Lib\\Db\\Driver');
     $this->driver->shouldReceive('booleanToDb')->with(true)->andReturn('t');
@@ -40,10 +30,10 @@ abstract class DbManagerTest extends \PHPUnit\Framework\TestCase
     });
 
     $this->logger = M::mock('Monolog\\Logger');
-    $this->logger->shouldReceive('addDebug');
+    $this->logger->shouldReceive('debug');
   }
 
-  function tearDown()
+  function tearDown() : void
   {
     M::close();
   }
@@ -61,11 +51,9 @@ abstract class DbManagerTest extends \PHPUnit\Framework\TestCase
     $this->dbManager->begin();
   }
 
-  /**
-   * @expectedException \Exception
-   */
   function testCommitTransaction()
   {
+    $this->expectException(Exception::class);
     $this->driver->shouldReceive("commit")->withNoArgs()->never();
     $this->dbManager->commit();
   }
@@ -105,11 +93,9 @@ abstract class DbManagerTest extends \PHPUnit\Framework\TestCase
     assertThat($existsTable, is(TRUE));
   }
 
-  /**
-   * @expectedException \Exception
-   */
   function testExistsDb_hack()
   {
+    $this->expectException(Exception::class);
     $this->dbManager->existsTable("goodTable' OR 3<'4");
   }
 

@@ -1,19 +1,8 @@
 <?php
 /*
-Copyright (C) 2014-2015, Siemens AG
+ SPDX-FileCopyrightText: © 2014-2015 Siemens AG
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-version 2 as published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ SPDX-License-Identifier: GPL-2.0-only
 */
 
 /**
@@ -62,13 +51,26 @@ class Auth
    * Add/delete users and groups. This is the 'superuser' permission. */
   const PERM_ADMIN=10;
 
+  /** @var int TOKEN_OAUTH
+   * Allow OAuth tokens for REST */
+  const TOKEN_OAUTH = 0x1;
+  /** @var int TOKEN_TOKEN
+   * Allow FOSSology JWT tokens for REST */
+  const TOKEN_TOKEN = 0x2;
+  /** @var int TOKEN_BOTH
+   * Allow both token formats for REST */
+  const TOKEN_BOTH  = 0x3;
+
   /**
    * @brief Get the current user's id
    * @return int User id
    */
   public static function getUserId()
   {
-    return $GLOBALS['SysConf']['auth'][self::USER_ID];
+    if (array_key_exists('auth', $GLOBALS['SysConf'])) {
+      return $GLOBALS['SysConf']['auth'][self::USER_ID];
+    }
+    return 0;
   }
 
   /**
@@ -77,7 +79,10 @@ class Auth
    */
   public static function getGroupId()
   {
-    return $GLOBALS['SysConf']['auth'][self::GROUP_ID];
+    if (array_key_exists('auth', $GLOBALS['SysConf'])) {
+      return $GLOBALS['SysConf']['auth'][self::GROUP_ID];
+    }
+    return 0;
   }
 
   /**
@@ -96,5 +101,29 @@ class Auth
   public static function isClearingAdmin()
   {
     return $_SESSION[self::USER_LEVEL]>=self::PERM_CADMIN;
+  }
+
+  /**
+   * Get REST Token format from conf
+   * @return int Auth::TOKEN_TOKEN | Auth::TOKEN_OAUTH | Auth::TOKEN_BOTH
+   */
+  public static function getRestTokenType()
+  {
+    global $SysConf;
+    $restToken = "token";
+    if (array_key_exists('AUTHENTICATION', $SysConf) &&
+        array_key_exists('resttoken', $SysConf['AUTHENTICATION'])) {
+      $restToken = $SysConf['AUTHENTICATION']['resttoken'];
+    }
+    switch ($restToken) {
+      case 'oauth':
+        return self::TOKEN_OAUTH;
+        break;
+      case 'both':
+        return self::TOKEN_BOTH;
+        break;
+      default:
+        return self::TOKEN_TOKEN;
+    }
   }
 }
