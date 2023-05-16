@@ -19,14 +19,12 @@ use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Dao\TreeDao;
 use Fossology\Lib\Dao\UploadDao;
 use Fossology\Lib\Data\AgentRef;
-use Fossology\Lib\Data\ClearingDecision;
-use Fossology\Lib\Data\DecisionTypes;
 use Fossology\Lib\Data\Tree\ItemTreeBounds;
 use Fossology\Lib\Proxy\ScanJobProxy;
-use Symfony\Component\HttpFoundation\Response;
-
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\Response;
+
 /**
  * @class UIExportList
  * Print the founded and concluded license or copyrights as a list or CSV.
@@ -49,7 +47,7 @@ class UIExportList extends FO_Plugin
    * CopyrightDao object */
   private $copyrightDao;
 
-  /** @var ClearingDecisionFilte $clearingFilter
+  /** @var ClearingDecisionFilter $clearingFilter
    * Clearing filer */
   private $clearingFilter;
 
@@ -180,7 +178,8 @@ class UIExportList extends FO_Plugin
       Auth::getGroupId());
     $editedMappedLicenses = $this->clearingFilter->filterCurrentClearingDecisionsForLicenseList($allDecisions);
     $licensesPerFileName = $this->licenseDao->getLicensesPerFileNameForAgentId($itemTreeBounds,
-      $agent_pks, $includeSubfolder, $exclude, $ignore, $editedMappedLicenses);
+      $agent_pks, $includeSubfolder, $exclude, $ignore, $editedMappedLicenses,
+      true);
     /* how many lines of data do you want to display */
     $currentNum = 0;
     $lines = [];
@@ -196,14 +195,17 @@ class UIExportList extends FO_Plugin
 
         $row = array();
         $row['filePath'] = $fileName;
-        $row['agentFindings'] = $licenseNames['scanResults'];
+        if (array_key_exists('scanResults', $licenseNames)) {
+          $row['agentFindings'] = $licenseNames['scanResults'];
+        } else {
+          $row['agentFindings'] = null;
+        }
         $row['conclusions'] = null;
+        $row['uploadtree_pk'] = $licenseNames['uploadtree_pk'][0];
         if (array_key_exists('concludedResults', $licenseNames) && !empty($licenseNames['concludedResults'])) {
           $row['conclusions'] = $this->consolidateConclusions($licenseNames['concludedResults']);
-          $lines[] = $row;
-        } else {
-          $lines[] = $row;
         }
+        $lines[] = $row;
       }
       if (!$ignore && $licenseNames === false) {
         $row = array();
@@ -372,16 +374,20 @@ class UIExportList extends FO_Plugin
   public function getCopyrights($uploadId, $uploadtree_pk, $uploadTreeTableName,
     $NomostListNum, $exclude, $copyrightType = "all")
   {
-    $agentName = "copyright";
+    $agentName = array('copyright', 'reso');
     $scanJobProxy = new ScanJobProxy($GLOBALS['container']->get('dao.agent'),
       $uploadId);
-    $scanJobProxy->createAgentStatus([$agentName]);
+    $scanJobProxy->createAgentStatus($agentName);
     $selectedScanners = $scanJobProxy->getLatestSuccessfulAgentIds();
-    if (!array_key_exists($agentName, $selectedScanners)) {
+    if (!array_key_exists($agentName[0], $selectedScanners)) {
       return array();
     }
-    $latestAgentId = $selectedScanners[$agentName];
-    $agentFilter = ' AND C.agent_fk='.$latestAgentId;
+    $latestAgentIds[] = $selectedScanners[$agentName[0]];
+    if (array_key_exists($agentName[1], $selectedScanners)) {
+      $latestAgentIds[] = $selectedScanners[$agentName[1]];
+    }
+    $ids = implode(',', $latestAgentIds);
+    $agentFilter = ' AND C.agent_fk IN ('.$ids.')';
 
     $itemTreeBounds = $this->uploadDao->getItemTreeBounds($uploadtree_pk,
       $uploadTreeTableName);
@@ -392,7 +398,7 @@ class UIExportList extends FO_Plugin
     }
     $lines = [];
 
-    $copyrights =  $this->copyrightDao->getScannerEntries($agentName,
+    $copyrights =  $this->copyrightDao->getScannerEntries($agentName[0],
       $uploadTreeTableName, $uploadId, null, $extrawhere . $agentFilter);
     $this->updateCopyrightList($lines, $copyrights, $NomostListNum,
       $uploadTreeTableName, "content");
@@ -550,6 +556,9 @@ class UIExportList extends FO_Plugin
     $newLines = [];
     foreach ($lines as $row) {
       $consolidatedLicenses = array();
+      if ($row['agentFindings'] == null) {
+        continue;
+      }
       if ($row['conclusions'] !== null) {
         $row['agentFindings'] = array();
         foreach ($row['conclusions'] as $key => $value) {

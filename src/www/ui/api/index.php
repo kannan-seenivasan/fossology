@@ -20,26 +20,29 @@ require_once dirname(dirname(dirname(__DIR__))) . "/vendor/autoload.php";
 require_once dirname(dirname(dirname(dirname(__FILE__)))) .
   "/lib/php/bootstrap.php";
 
+use Fossology\Lib\Util\TimingLogger;
 use Fossology\UI\Api\Controllers\AuthController;
 use Fossology\UI\Api\Controllers\BadRequestController;
-use Fossology\UI\Api\Controllers\FolderController;
 use Fossology\UI\Api\Controllers\FileSearchController;
+use Fossology\UI\Api\Controllers\FolderController;
+use Fossology\UI\Api\Controllers\GroupController;
+use Fossology\UI\Api\Controllers\InfoController;
 use Fossology\UI\Api\Controllers\JobController;
+use Fossology\UI\Api\Controllers\LicenseController;
+use Fossology\UI\Api\Controllers\MaintenanceController;
 use Fossology\UI\Api\Controllers\ReportController;
 use Fossology\UI\Api\Controllers\SearchController;
 use Fossology\UI\Api\Controllers\UploadController;
 use Fossology\UI\Api\Controllers\UserController;
-use Fossology\UI\Api\Controllers\InfoController;
-use Fossology\UI\Api\Controllers\LicenseController;
-use Fossology\UI\Api\Middlewares\RestAuthMiddleware;
-use Fossology\UI\Api\Controllers\GroupController;
 use Fossology\UI\Api\Helper\ResponseFactoryHelper;
 use Fossology\UI\Api\Helper\ResponseHelper;
 use Fossology\UI\Api\Middlewares\FossologyInitMiddleware;
+use Fossology\UI\Api\Middlewares\RestAuthMiddleware;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
+use Slim\Exception\HttpMethodNotAllowedException;
 use Slim\Exception\HttpNotFoundException;
 use Slim\Factory\AppFactory;
 use Slim\Middleware\ContentLengthMiddleware;
@@ -51,6 +54,8 @@ const REST_VERSION = "1";
 const BASE_PATH   = "/repo/api/v" . REST_VERSION;
 
 const AUTH_METHOD = "JWT_TOKEN";
+
+$GLOBALS['apiBasePath'] = BASE_PATH;
 
 $startTime = microtime(true);
 
@@ -96,8 +101,8 @@ $app->setBasePath(BASE_PATH);
  * 1. The call enters from Rest Auth and initialize session variables.
  * 2. It then goes to FOSSology Init and initialize all plugins
  * 3. The normal flow continues.
- * 4. The call now enteres FOSSology Init again and plugins are unloaded.
- * 5. Then call then enters Rest Auth and leaves as is.
+ * 4. The call now enters FOSSology Init again and plugins are unloaded.
+ * 5. The call then enters Rest Auth and leaves as is.
  */
 if ($dbConnected) {
   // Middleware for plugin initialization
@@ -138,8 +143,11 @@ $app->group('/uploads',
     $app->patch('/{id:\\d+}', UploadController::class . ':updateUpload');
     $app->put('/{id:\\d+}', UploadController::class . ':moveUpload');
     $app->post('', UploadController::class . ':postUpload');
+    $app->put('/{id:\\d+}/permissions', UploadController::class . ':setUploadPermissions');
+    $app->get('/{id:\\d+}/perm-groups', UploadController::class . ':getGroupsWithPermissions');
     $app->get('/{id:\\d+}/summary', UploadController::class . ':getUploadSummary');
     $app->get('/{id:\\d+}/licenses', UploadController::class . ':getUploadLicenses');
+    $app->get('/{id:\\d+}/download', UploadController::class . ':uploadDownload');
     $app->get('/{id:\\d+}/copyrights', UploadController::class . ':getUploadCopyrights');
     $app->any('/{params:.*}', BadRequestController::class);
   });
@@ -162,9 +170,12 @@ $app->group('/groups',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', GroupController::class . ':getGroups');
     $app->post('', GroupController::class . ':createGroup');
+    $app->post('/{id:\\d+}/user/{userId:\\d+}', GroupController::class . ':addMember');
     $app->delete('/{id:\\d+}', GroupController::class . ':deleteGroup');
-    $app->delete('/{id:\\d+}/user/{uid:\\d+}', GroupController::class . ':deleteGroupMember');
+    $app->delete('/{id:\\d+}/user/{userId:\\d+}', GroupController::class . ':deleteGroupMember');
     $app->get('/deletable', GroupController::class . ':getDeletableGroups');
+    $app->get('/{id:\\d+}/members', GroupController::class . ':getGroupMembers');
+    $app->put('/{id:\\d+}/user/{userId:\\d+}', GroupController::class . ':changeUserPermission');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
@@ -174,6 +185,7 @@ $app->group('/jobs',
     $app->get('[/{id:\\d+}]', JobController::class . ':getJobs');
     $app->get('/all', JobController::class . ':getAllJobs');
     $app->post('', JobController::class . ':createJob');
+    $app->get('/history', JobController::class . ':getJobsHistory');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
@@ -182,6 +194,14 @@ $app->group('/search',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', SearchController::class . ':performSearch');
   });
+
+////////////////////////////MAINTENANCE/////////////////////
+$app->group('/maintenance',
+  function (\Slim\Routing\RouteCollectorProxy $app) {
+    $app->post('', MaintenanceController::class . ':createMaintenance');
+    $app->any('/{params:.*}', BadRequestController::class);
+  });
+
 
 ////////////////////////////FOLDER/////////////////////
 $app->group('/folders',
@@ -199,6 +219,7 @@ $app->group('/report',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', ReportController::class . ':getReport');
     $app->get('/{id:\\d+}', ReportController::class . ':downloadReport');
+    $app->post('/import', ReportController::class . ':importReport');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 
@@ -227,9 +248,13 @@ $app->group('/filesearch',
 $app->group('/license',
   function (\Slim\Routing\RouteCollectorProxy $app) {
     $app->get('', LicenseController::class . ':getAllLicenses');
+    $app->post('/import-csv', LicenseController::class . ':handleImportLicense');
     $app->post('', LicenseController::class . ':createLicense');
+    $app->get('/admincandidates', LicenseController::class . ':getCandidates');
     $app->get('/{shortname:.+}', LicenseController::class . ':getLicense');
     $app->patch('/{shortname:.+}', LicenseController::class . ':updateLicense');
+    $app->delete('/admincandidates/{id:\\d+}',
+      LicenseController::class . ':deleteAdminLicenseCandidate');
     $app->any('/{params:.*}', BadRequestController::class);
   });
 

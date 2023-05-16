@@ -16,9 +16,9 @@
 namespace Fossology\UI\Ajax;
 
 use Fossology\Lib\Auth\Auth;
+use Fossology\Lib\Dao\ClearingDao;
 use Fossology\Lib\Dao\ShowJobsDao;
 use Fossology\Lib\Dao\UserDao;
-use Fossology\Lib\Dao\ClearingDao;
 use Fossology\Lib\Db\DbManager;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
@@ -209,7 +209,7 @@ class AjaxShowJobs extends \FO_Plugin
    * @param array $jobData
    * @return Returns an upload job status in array
    **/
-  protected function getShowJobsForEachJob($jobData)
+  public function getShowJobsForEachJob($jobData)
   {
     if (count($jobData) == 0) {
       return array('showJobsData' => "There are no jobs to display");
@@ -295,6 +295,9 @@ class AjaxShowJobs extends \FO_Plugin
             break;
           case 'clixml':
             $jobArr['jobQueue'][$key]['download'] = "Clixml Report";
+            break;
+          case 'decisionexporter':
+            $jobArr['jobQueue'][$key]['download'] = "FOSSology Decisions";
             break;
           default:
             $jobArr['jobQueue'][$key]['download'] = "";

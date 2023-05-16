@@ -1,5 +1,5 @@
 /*
- SPDX-FileCopyrightText: © 2014-2015 Siemens AG
+ SPDX-FileCopyrightText: © 2014-2015,2022 Siemens AG
  Author: Johannes Najjar
 
  SPDX-License-Identifier: GPL-2.0-only
@@ -48,6 +48,20 @@ string cleanGeneral(string::const_iterator sBegin, string::const_iterator sEnd)
 }
 
 /**
+ * \brief Truncate SPDX-CopyrightText from copyright statement
+ * \param sBegin String begin
+ * \param sEnd   String end
+ * \return string Clean spdx statements
+ */
+string cleanSpdxStatement(string::const_iterator sBegin, string::const_iterator sEnd)
+{
+  stringstream ss;
+  rx::regex_replace(ostream_iterator<char>(ss), sBegin, sEnd, rx::regex("spdx-filecopyrighttext:", rx::regex_constants::icase), " ");
+  string s = ss.str();
+  return cleanGeneral(s.begin(), s.end());
+}
+
+/**
  * \brief Clean copyright statements from special characters
  * (comment characters in programming languages, multiple spaces etc.)
  * \param sBegin String begin
@@ -59,7 +73,49 @@ string cleanStatement(string::const_iterator sBegin, string::const_iterator sEnd
   stringstream ss;
   rx::regex_replace(ostream_iterator<char>(ss), sBegin, sEnd, rx::regex("\n[[:space:][:punct:]]*"), " ");
   string s = ss.str();
-  return cleanGeneral(s.begin(), s.end());
+  return cleanSpdxStatement(s.begin(), s.end());
+}
+
+/**
+ * \brief Clean non unicode characters (binary data).
+ *
+ * Uses ICU library to check if the characters are unicode or not and append
+ * only unicode characters to the result string.
+ * \param sBegin String begin
+ * \param sEnd   String end
+ * \return string Clean statements
+ */
+string cleanNonPrint(string::const_iterator sBegin, string::const_iterator sEnd)
+{
+  string s(sBegin, sEnd);
+  const unsigned char *in = reinterpret_cast<const unsigned char*>(s.c_str());
+  int len = s.length();
+
+  icu::UnicodeString out;
+  for (int i = 0; i < len;)
+  {
+    UChar32 uniChar;
+    size_t lastPos = i;
+    U8_NEXT(in, i, len, uniChar);   // Get next UTF-8 char
+    if (uniChar > 0)
+    {
+      out.append(uniChar);
+    }
+    else
+    {
+      i = lastPos;  // Rest pointer
+      U16_NEXT(in, i, len, uniChar); // Try to get failed input as UTF-16
+      if (U_IS_UNICODE_CHAR(uniChar) && uniChar > 0)
+      {
+        out.append(uniChar);
+      }
+    }
+  }
+  out.trim();
+
+  string ret;
+  out.toUTF8String(ret);
+  return ret;
 }
 
 /**

@@ -12,13 +12,12 @@
 
 namespace Fossology\UI\Api\Controllers;
 
+use Fossology\Lib\Dao\SearchHelperDao;
 use Fossology\UI\Api\Helper\ResponseHelper;
-use Psr\Http\Message\ServerRequestInterface;
 use Fossology\UI\Api\Models\Info;
 use Fossology\UI\Api\Models\InfoType;
 use Fossology\UI\Api\Models\SearchResult;
-
-require_once dirname(dirname(__DIR__)) . "/search-helper.php";
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * @class SearchController
@@ -26,6 +25,9 @@ require_once dirname(dirname(__DIR__)) . "/search-helper.php";
  */
 class SearchController extends RestController
 {
+  /** @var SearchHelperDao */
+  private $searchHelperDao;
+
   /**
    * Perform a search on FOSSology
    *
@@ -36,6 +38,8 @@ class SearchController extends RestController
    */
   public function performSearch($request, $response, $args)
   {
+    $this->searchHelperDao = $this->container->get('dao.searchhelperdao');
+
     $searchType = $request->getHeaderLine("searchType");
     $filename = $request->getHeaderLine("filename");
     $tag = $request->getHeaderLine("tag");
@@ -103,24 +107,24 @@ class SearchController extends RestController
     }
 
     $item = GetParm("item", PARM_INTEGER);
-    list($results, $count) = GetResults($item, $filename, $uploadId, $tag, $page-1, $limit,
+    list($results, $count) = $this->searchHelperDao->GetResults($item,
+      $filename, $uploadId, $tag, $page-1, $limit,
       $filesizeMin, $filesizeMax, $searchType, $license, $copyright,
-      $this->restHelper->getUploadDao(), $this->restHelper->getGroupId(),
-      $GLOBALS['PG_CONN']);
+      $this->restHelper->getUploadDao(), $this->restHelper->getGroupId());
     $totalPages = intval(ceil($count / $limit));
 
     $searchResults = [];
-    // rewrite it and add additional information about it's parent upload
-    for ($i = 0; $i < sizeof($results); $i ++) {
+    // rewrite it and add additional information about its parent upload
+    foreach ($results as $result) {
       $currentUpload = $this->dbHelper->getUploads(
         $this->restHelper->getUserId(), $this->restHelper->getGroupId(), 1, 1,
-        $results[$i]["upload_fk"], null, true)[1];
+        $result["upload_fk"], null, true)[1];
       if (! empty($currentUpload)) {
         $currentUpload = $currentUpload[0];
       } else {
         continue;
       }
-      $uploadTreePk = $results[$i]["uploadtree_pk"];
+      $uploadTreePk = $result["uploadtree_pk"];
       $filename = $this->dbHelper->getFilenameFromUploadTree($uploadTreePk);
       $currentResult = new SearchResult($currentUpload, $uploadTreePk, $filename);
       $searchResults[] = $currentResult->getArray();

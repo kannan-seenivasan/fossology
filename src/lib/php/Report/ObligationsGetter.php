@@ -7,9 +7,10 @@
 
 namespace Fossology\Lib\Report;
 
-use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Dao\ClearingDao;
+use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Dao\UploadDao;
+use Fossology\Lib\Data\LicenseRef;
 
 /**
  * @class ObligationsToLicenses
@@ -51,28 +52,32 @@ class ObligationsGetter
    */
   function getObligations($licenseStatements, $mainLicenseStatements, $uploadId, $groupId)
   {
+    $whiteLists = array();
     $licenseIds = $this->contentOnly($licenseStatements) ?: array();
     $mainLicenseIds = $this->contentOnly($mainLicenseStatements);
 
-    if (! empty($mainLicenseIds)) {
+    if (!empty($mainLicenseIds)) {
       $allLicenseIds = array_unique(array_merge($licenseIds, $mainLicenseIds));
     } else {
       $allLicenseIds = array_unique($licenseIds);
     }
 
     $bulkAddIds = $this->getBulkAddLicenseList($uploadId, $groupId);
+    if (!empty($bulkAddIds)) {
+      $allLicenseIds = array_unique(array_merge($licenseIds, $bulkAddIds));
+    }
+
     $obligationRef = $this->licenseDao->getLicenseObligations($allLicenseIds) ?: array();
     $obligationCandidate = $this->licenseDao->getLicenseObligations($allLicenseIds, true) ?: array();
     $obligations = array_merge($obligationRef, $obligationCandidate);
     $onlyLicenseIdsWithObligation = array_column($obligations, 'rf_fk');
-    if (!empty($bulkAddIds)) {
-      $onlyLicenseIdsWithObligation = array_unique(array_merge($onlyLicenseIdsWithObligation, $bulkAddIds));
-    }
-    $licenseWithoutObligations = array_diff($allLicenseIds, $onlyLicenseIdsWithObligation) ?: array();
+    $licenseWithObligations = array_unique(array_intersect($onlyLicenseIdsWithObligation, $allLicenseIds));
+    $licenseWithoutObligations = array_diff($allLicenseIds, $licenseWithObligations) ?: array();
     foreach ($licenseWithoutObligations as $licenseWithoutObligation) {
       $license = $this->licenseDao->getLicenseById($licenseWithoutObligation);
       if (!empty($license)) {
-        $whiteLists[] = $license->getShortName();
+        $whiteLists[] = LicenseRef::convertToSpdxId($license->getShortName(),
+          $license->getSpdxId());
       }
     }
     $newobligations = $this->groupObligations($obligations, $uploadId);
@@ -120,9 +125,15 @@ class ObligationsGetter
     foreach ($obligations as $obligation ) {
       $obTopic = $obligation['ob_topic'];
       $obText = $obligation['ob_text'];
-      $licenseName = $obligation['rf_shortname'];
+      $licenseName = LicenseRef::convertToSpdxId($obligation['rf_shortname'],
+        $obligation['rf_spdx_id']);
       $groupBy = $obText;
-      if (!in_array($licenseName,(array) $excludedObligations[$obTopic])) {
+      if (!empty($excludedObligations) && array_key_exists($obTopic, $excludedObligations)) {
+        $obligationLicenseNames = $excludedObligations[$obTopic];
+      } else {
+        $obligationLicenseNames = array();
+      }
+      if (!in_array($licenseName, $obligationLicenseNames)) {
         if (array_key_exists($groupBy, $groupedOb)) {
           $currentLics = &$groupedOb[$groupBy]['license'];
           if (!in_array($licenseName, $currentLics)) {

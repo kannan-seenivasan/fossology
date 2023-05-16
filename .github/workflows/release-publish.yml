@@ -20,8 +20,8 @@ jobs:
         os:
           - 'debian:buster'
           - 'debian:bullseye'
-          - 'ubuntu:bionic'
           - 'ubuntu:focal'
+          - 'ubuntu:jammy'
 
     runs-on: ubuntu-latest
     container: ${{ matrix.os }}
@@ -64,7 +64,9 @@ jobs:
         ./utils/fo-installdeps -y -b
         ./install/scripts/install-spdx-tools.sh
         rm -rf src/vendor
-        make clean phpvendors
+
+    - name: Get CMake v3.23.0
+      uses: lukka/get-cmake@v3.23.0
 
     - name: Fetch tags
       run: |
@@ -81,12 +83,19 @@ jobs:
         VERSION: ${{ steps.get_release.outputs.tag_name }}
       run: |
         echo PACKAGE_NAME=$(echo "FOSSology-${VERSION}-$(lsb_release -si | tr [:upper:] [:lower:])-$(lsb_release -sc | tr [:upper:] [:lower:]).tar.gz") >> $GITHUB_ENV
+    - name: Configure and Generate CMake Project
+      run: |
+        cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DFO_SYSCONFDIR=/etc/fossology -DFO_LOCALSTATEDIR=/var -S. -B./build -G Ninja
 
     - name: Build Debs
-      run: ./utils/fo-debuild --no-sign
+      run: cd build && cpack --config CPackConfig.cmake
 
     - name: Rename package
-      run: mv fossology_*.tar.gz ${PACKAGE_NAME}
+      run: |
+        find build -type f -name "*-dbgsym*" -delete
+        mkdir -p packages
+        mv build/*.deb packages/
+        tar -czvf ${PACKAGE_NAME} packages
 
     - name: Upload Release Asset
       id: upload-release-asset
@@ -130,3 +139,5 @@ jobs:
       with:
         push: true
         tags: fossology/fossology:${{ steps.get_release.outputs.tag_name }}
+        labels: |
+          org.opencontainers.image.version=${{ steps.get_release.outputs.tag_name }}.0

@@ -53,8 +53,14 @@ class RestAuthMiddleware
       stristr($request->getMethod(), "post") !== false) {
       $response = $handler->handle($request);
     } else {
+      /** @var AuthHelper $authHelper */
       $authHelper = $GLOBALS['container']->get('helper.authHelper');
-      $jwtToken = $request->getHeader('Authorization')[0];
+      $authHeaders = $request->getHeader('Authorization');
+      if (!empty($authHeaders)) {
+        $jwtToken = $authHeaders[0];
+      } else {
+        $jwtToken = "";
+      }
       $userId = -1;
       $tokenScope = false;
       $tokenValid = $authHelper->verifyAuthToken($jwtToken, $userId,
@@ -93,7 +99,7 @@ class RestAuthMiddleware
     return $response
       ->withHeader('Access-Control-Allow-Origin', $SysConf['SYSCONFIG']['CorsOrigins'])
       ->withHeader('Access-Control-Expose-Headers', 'Look-at, X-Total-Pages, Retry-After')
-      ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization, action, active, copyright, Content-Type, description, filename, filesizemax, filesizemin, folderDescription, folderId, folderName, groupName, ignoreScm, applyGlobal, license, limit, name, page, parent, parentFolder, public, reportFormat, searchType, tag, upload, uploadDescription, uploadId, uploadType')
+      ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization, action, accesslevel, active, copyright, Content-Type, description, filename, filesizemax, filesizemin, folderDescription, folderId, folderName, groupName, ignoreScm, applyGlobal, license, limit, name, page, parent, parentFolder, public, reportFormat, searchType, tag, upload, uploadDescription, uploadId, uploadType')
       ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   }
 }

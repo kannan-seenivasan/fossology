@@ -1,7 +1,9 @@
 <?php
 /*
  SPDX-FileCopyrightText: © 2018, 2020 Siemens AG
- Author: Gaurav Mishra <mishra.gaurav@siemens.com>
+ Author: Gaurav Mishra <mishra.gaurav@siemens.com>,
+ Soham Banerjee <sohambanerjee4abc@hotmail.com>
+ SPDX-FileCopyrightText: © 2022 Samuel Dushimimana <dushsam100@gmail.com>
 
  SPDX-License-Identifier: GPL-2.0-only
 */
@@ -12,18 +14,18 @@
 
 namespace Fossology\UI\Api\Controllers;
 
-use Psr\Http\Message\ServerRequestInterface;
 use Fossology\DelAgent\UI\DeleteMessages;
-use Fossology\UI\Page\UploadPageBase;
-use Fossology\UI\Api\Models\Info;
-use Fossology\UI\Api\Models\InfoType;
-use Fossology\UI\Api\Helper\UploadHelper;
+use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Data\AgentRef;
-use Fossology\Lib\Dao\AgentDao;
 use Fossology\Lib\Data\UploadStatus;
 use Fossology\Lib\Proxy\ScanJobProxy;
 use Fossology\Lib\Proxy\UploadBrowseProxy;
 use Fossology\UI\Api\Helper\ResponseHelper;
+use Fossology\UI\Api\Helper\UploadHelper;
+use Fossology\UI\Api\Models\Info;
+use Fossology\UI\Api\Models\InfoType;
+use Psr\Http\Message\ServerRequestInterface;
+use Slim\Psr7\Factory\StreamFactory;
 
 /**
  * @class UploadController
@@ -238,6 +240,52 @@ class UploadController extends RestController
   }
 
   /**
+   * Gets file response for each upload
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function uploadDownload($request, $response, $args)
+  {
+    $ui_download = $this->restHelper->getPlugin('download');
+    $id = null;
+
+    if (isset($args['id'])) {
+      $id = intval($args['id']);
+      $upload = $this->uploadAccessible($this->restHelper->getGroupId(), $id);
+      if ($upload !== true) {
+        return $response->withJson($upload->getArray(), $upload->getCode());
+      }
+    }
+    $dbManager = $this->restHelper->getDbHelper()->getDbManager();
+    $uploadDao = $this->restHelper->getUploadDao();
+    $uploadTreeTableName = $uploadDao->getUploadtreeTableName($id);
+    $itemTreeBounds = $uploadDao->getParentItemBounds($id,$uploadTreeTableName);
+    $sql =  "SELECT pfile_fk , ufile_name FROM uploadtree_a WHERE uploadtree_pk=$1";
+    $params = array($itemTreeBounds->getItemId());
+    $descendants = $dbManager->getSingleRow($sql,$params);
+    $path= RepPath(($descendants['pfile_fk']));
+    $responseFile = $ui_download->getDownload($path, $descendants['ufile_name']);
+    $responseContent = $responseFile->getFile();
+    $newResponse = $response->withHeader('Content-Description',
+        'File Transfer')
+        ->withHeader('Content-Type',
+        $responseContent->getMimeType())
+        ->withHeader('Content-Disposition',
+        $responseFile->headers->get('Content-Disposition'))
+        ->withHeader('Cache-Control', 'must-revalidate')
+        ->withHeader('Pragma', 'private')
+        ->withHeader('Content-Length', filesize($responseContent->getPathname()));
+    $sf = new StreamFactory();
+    $newResponse = $newResponse->withBody(
+      $sf->createStreamFromFile($responseContent->getPathname())
+    );
+    return($newResponse);
+  }
+
+  /**
    * Get summary of given upload
    *
    * @param ServerRequestInterface $request
@@ -345,8 +393,32 @@ class UploadController extends RestController
    */
   public function postUpload($request, $response, $args)
   {
+    $uploadType = $request->getHeaderLine('uploadType');
+    if (empty($uploadType)) {
+      $uploadType = 'vcs';
+    }
+    $reqBody = $this->getParsedBody($request);
+    $scanOptions = [];
+    if (array_key_exists('scanOptions', $reqBody)) {
+      if ($uploadType == 'file') {
+        $scanOptions = json_decode($reqBody['scanOptions'], true);
+      } else {
+        $scanOptions = $reqBody['scanOptions'];
+      }
+    }
+
+    if (! is_array($scanOptions)) {
+      $scanOptions = [];
+    }
+
     $uploadHelper = new UploadHelper();
-    if ($request->hasHeader('folderId') &&
+
+    if ($uploadType != "file" && (empty($reqBody) ||
+        ! array_key_exists("location", $reqBody))) {
+      $error = new Info(400, "Require location object if uploadType != file.",
+        InfoType::ERROR);
+      return $response->withJson($error->getArray(), $error->getCode());
+    } else if ($request->hasHeader('folderId') &&
       is_numeric($folderId = $request->getHeaderLine('folderId')) && $folderId > 0) {
 
       $allFolderIds = $this->restHelper->getFolderDao()->getAllFolderIds();
@@ -366,19 +438,32 @@ class UploadController extends RestController
       $applyGlobal = filter_var($request->getHeaderLine('applyGlobal'),
         FILTER_VALIDATE_BOOLEAN);
       $ignoreScm = $request->getHeaderLine('ignoreScm');
-      $uploadType = $request->getHeaderLine('uploadType');
-      if (empty($uploadType)) {
-        $uploadType = "vcs";
+
+      $locationObject = [];
+      if (array_key_exists("location", $reqBody)) {
+        $locationObject = $reqBody["location"];
+      } elseif ($request->getHeaderLine('uploadType') != 'file') {
+        $error = new Info(400, "Require location object if uploadType != file",
+          InfoType::ERROR);
+        return $response->withJson($error->getArray(), $error->getCode());
       }
-      $reqBody = $this->getParsedBody($request);
-      $uploadResponse = $uploadHelper->createNewUpload($reqBody, $folderId,
-        $description, $public, $ignoreScm, $uploadType, $applyGlobal);
+
+      $uploadResponse = $uploadHelper->createNewUpload($locationObject,
+        $folderId, $description, $public, $ignoreScm, $uploadType,
+        $applyGlobal);
       $status = $uploadResponse[0];
       $message = $uploadResponse[1];
       $statusDescription = $uploadResponse[2];
       if (! $status) {
         $info = new Info(500, $message . "\n" . $statusDescription,
           InfoType::ERROR);
+      } elseif (! empty($scanOptions)) {
+        $uploadId = $uploadResponse[3];
+        $info =  $uploadHelper->handleScheduleAnalysis(intval($uploadId),
+          intval($folderId), $scanOptions, true);
+        if ($info->getCode() == 201) {
+          $info = new Info($info->getCode(), intval($uploadId), $info->getType());
+        }
       } else {
         $uploadId = $uploadResponse[3];
         $info = new Info(201, intval($uploadId), InfoType::INFO);
@@ -649,5 +734,107 @@ class UploadController extends RestController
       }
     }
     return true;
+  }
+
+  /**
+   * Set permissions for a upload in a folder for different groups
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function setUploadPermissions($request, $response, $args)
+  {
+    $returnVal = null;
+    // checking if the scheduler is running or not
+    $commu_status = fo_communicate_with_scheduler('status', $response_from_scheduler, $error_info);
+    if ($commu_status) {
+      // Initialising upload-permissions plugin
+      global $container;
+      $restHelper = $container->get('helper.restHelper');
+      $uploadPermissionObj = $restHelper->getPlugin('upload_permissions');
+
+      $dbManager = $this->dbHelper->getDbManager();
+      // parsing the request body
+      $reqBody = $this->getParsedBody($request);
+
+      $folder_pk = intval($reqBody['folderId']);
+      $upload_pk = intval($args['id']);
+      $upload = $this->uploadAccessible($this->restHelper->getGroupId(), $upload_pk);
+      if ($upload !== true) {
+        return $response->withJson($upload->getArray(), $upload->getCode());
+      }
+      $allUploadsPerm = $reqBody['allUploadsPermission'] ? 1 : 0;
+      $newgroup = intval($reqBody['groupId']);
+      $newperm = intval($this->getEquivalentValueForPermission($reqBody['newPermission']));
+      $public_perm = isset($reqBody['publicPermission']) ? $this->getEquivalentValueForPermission($reqBody['publicPermission']) : -1;
+
+      $query = "SELECT perm, perm_upload_pk FROM perm_upload WHERE upload_fk=$1 and group_fk=$2;";
+      $result = $dbManager->getSingleRow($query, [$upload_pk, $newgroup], __METHOD__.".getOldPerm");
+      $perm_upload_pk = 0;
+      $perm = 0;
+      if (!empty($result)) {
+        $perm_upload_pk = intVal($result['perm_upload_pk']);
+        $perm = $newperm;
+      }
+
+      $uploadPermissionObj->editPermissionsForUpload($commu_status, $folder_pk, $upload_pk, $allUploadsPerm, $perm_upload_pk, $perm, $newgroup, $newperm, $public_perm);
+
+      $returnVal = new Info(202, "Permissions updated successfully!", InfoType::INFO);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    } else {
+      $returnVal = new Info(503, "Scheduler is not running!", InfoType::ERROR);
+      return $response->withJson($returnVal->getArray(), $returnVal->getCode());
+    }
+  }
+
+  public function getEquivalentValueForPermission($perm)
+  {
+    switch ($perm) {
+      case 'none':
+        return Auth::PERM_NONE;
+      case 'read_only':
+        return Auth::PERM_READ;
+      case 'read_write':
+        return Auth::PERM_WRITE;
+      case 'clearing_admin':
+        return Auth::PERM_CADMIN;
+      case 'admin':
+        return Auth::PERM_ADMIN;
+      default:
+        return Auth::PERM_NONE;
+    }
+  }
+
+  /**
+   * Get all the groups with their respective permissions for a upload
+   *
+   * @param ServerRequestInterface $request
+   * @param ResponseHelper $response
+   * @param array $args
+   * @return ResponseHelper
+   */
+  public function getGroupsWithPermissions($request, $response, $args)
+  {
+    $upload_pk = intval($args['id']);
+    $upload = $this->uploadAccessible($this->restHelper->getGroupId(), $upload_pk);
+    if ($upload !== true) {
+      return $response->withJson($upload->getArray(), $upload->getCode());
+    }
+    $publicPerm = $this->restHelper->getUploadPermissionDao()->getPublicPermission($upload_pk);
+    $permGroups = $this->restHelper->getUploadPermissionDao()->getPermissionGroups($upload_pk);
+
+    // Removing the perm_upload_pk parameter in response
+    $finalPermGroups = array();
+    foreach ($permGroups as $value) {
+      unset($value["perm_upload_pk"]);
+      array_push($finalPermGroups, $value);
+    }
+
+    $res = array();
+    $res["publicPerm"] = $publicPerm;
+    $res["permGroups"] = $finalPermGroups;
+    return $response->withJson($res, 200);
   }
 }

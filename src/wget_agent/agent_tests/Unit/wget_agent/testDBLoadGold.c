@@ -12,7 +12,7 @@
 #include <ctype.h>
 #include "libfodbreposysconf.h"
 
-#define AGENT_DIR "../../"
+// #define AGENT_DIR "../"
 /**
  * \file
  * \brief testing for the function DBLoadGold
@@ -119,10 +119,6 @@ int DBLoadGoldClean()
   if (file_dir_existed(TempFileDir))
   {
     RemoveDir(TempFileDir);
-  }
-
-  if (sysconfig) {
-    fo_config_free(sysconfig);
   }
 
   char repoDir[STRMAX+1];

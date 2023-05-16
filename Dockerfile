@@ -1,6 +1,7 @@
 # FOSSology Dockerfile
-# SPDX-FileCopyrightText: © 2016 Siemens AG
+# SPDX-FileCopyrightText: © 2016,2022 Siemens AG
 # SPDX-FileCopyrightText: © fabio.huser@siemens.com
+# SPDX-FileCopyrightText: © mishra.gaurav@siemens.com
 # SPDX-FileCopyrightText: © 2016-2017 TNG Technology Consulting GmbH
 # SPDX-FileCopyrightText: © maximilian.huber@tngtech.com
 #
@@ -8,8 +9,11 @@
 #
 # Description: Docker container image recipe
 
-FROM debian:buster-slim as builder
-LABEL maintainer="Fossology <fossology@fossology.org>"
+FROM debian:bullseye-slim as builder
+LABEL org.opencontainers.image.authors="Fossology <fossology@fossology.org>"
+LABEL org.opencontainers.image.source="https://github.com/fossology/fossology"
+LABEL org.opencontainers.image.vendor="FOSSology"
+LABEL org.opencontainers.image.licenses="GPL-2.0-only AND LGPL-2.1-only"
 
 WORKDIR /fossology
 
@@ -17,8 +21,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       git \
       lsb-release \
-      php7.3-cli \
+      php7.4-cli \
       sudo \
+      cmake \
+      ninja-build \
  && rm -rf /var/lib/apt/lists/*
 
 COPY ./utils/fo-installdeps ./utils/fo-installdeps
@@ -34,6 +40,7 @@ COPY ./src/scancode/mod_deps ./src/scancode/
 COPY ./src/scheduler/mod_deps ./src/scheduler/
 COPY ./src/ununpack/mod_deps ./src/ununpack/
 COPY ./src/wget_agent/mod_deps ./src/wget_agent/
+COPY ./src/scanoss/mod_deps ./src/scanoss/
 
 RUN mkdir -p /fossology/dependencies-for-runtime \
  && cp -R /fossology/src /fossology/utils /fossology/dependencies-for-runtime/
@@ -45,13 +52,19 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
 
 COPY . .
 
-RUN make clean install \
- && make clean
+RUN cmake -DCMAKE_BUILD_TYPE=MinSizeRel -S. -B./build -G Ninja \
+ && cmake --build ./build --parallel \
+ && cmake --install build
 
+FROM debian:bullseye-slim
 
-FROM debian:buster-slim
-
-LABEL maintainer="Fossology <fossology@fossology.org>"
+LABEL org.opencontainers.image.authors="Fossology <fossology@fossology.org>"
+LABEL org.opencontainers.image.url="https://fossology.org"
+LABEL org.opencontainers.image.source="https://github.com/fossology/fossology"
+LABEL org.opencontainers.image.vendor="FOSSology"
+LABEL org.opencontainers.image.licenses="GPL-2.0-only AND LGPL-2.1-only"
+LABEL org.opencontainers.image.title="FOSSology"
+LABEL org.opencontainers.image.description="FOSSology is an open source license compliance software system and toolkit.  As a toolkit you can run license, copyright and export control scans from the command line.  As a system, a database and web ui are provided to give you a compliance workflow. License, copyright and export scanners are tools used in the workflow."
 
 ### install dependencies
 COPY --from=builder /fossology/dependencies-for-runtime /fossology

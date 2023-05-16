@@ -53,7 +53,7 @@ abstract class HistogramBase extends FO_Plugin
    * @param int    $uploadId     Upload id to process
    * @param int    $uploadTreeId Uploadtree id of the item
    * @param string $filter       Filter for query
-   * @param int    $agentId      Id of the agent populated the result
+   * @param string $agentId      Id of the agent populated the result
    * @return array
    * @todo Template this! For now I just template the js
    */
@@ -68,7 +68,12 @@ abstract class HistogramBase extends FO_Plugin
       $typeDescriptor = $description;
     }
     $output = "<h4>Activated $typeDescriptor statements:</h4>
-<div><table border=1 width='100%' id='copyright".$type."' class='wordbreaktable'></table></div>
+<div>
+  <div class='btn btn-default' style='float:right; padding:5px; margin:5px;'>
+    <input type='checkbox' style='padding:2px;' id='inverseSearchActivated".$type."' name='inverseSearch'/> 
+    <label class='control-label' for='inverseSearchActivated".$type."'>Inverse Search</label>
+  </div>
+<table border=1 width='100%' id='copyright".$type."' class='wordbreaktable'></table></div>
 <br/><br/>
 <div>
   <table border=0 width='100%' id='searchReplaceTable".$type."'>
@@ -113,6 +118,10 @@ abstract class HistogramBase extends FO_Plugin
   </table>
   <br/><br/>
   <h4>Deactivated $typeDescriptor statements:</h4>
+  <div class='btn btn-default' style='float:right; padding:5px; margin:5px;'>
+  <input type='checkbox' id='inverseSearchDeactivated".$type."' name='inverseSearch'/> 
+  <label class='control-label' for='inverseSearchDeactivated".$type."'>Inverse Search</label>
+  </div>
 </div>
 <div><table border=1 width='100%' id='copyright".$type."deactivated' class='wordbreaktable'></table>
   <br/><br/>
@@ -129,7 +138,7 @@ abstract class HistogramBase extends FO_Plugin
    * @param int    $upload_pk     Upload id for fetch request
    * @param int    $Uploadtree_pk Upload tree id of the item
    * @param string $filter        Filter to apply for query
-   * @param int    $agentId       Agent id which populate the result
+   * @param string $agentId       Agent id which populate the result
    * @param array  $VF
    * @return array Output, table variables
    */
@@ -144,12 +153,13 @@ abstract class HistogramBase extends FO_Plugin
    * @param string $Uri                  URI
    * @param string $filter               Filter for query
    * @param string $uploadtree_tablename Uploadtree table to use
-   * @param int    $Agent_pk             Agent id
+   * @param array  $Agent_pk             Agent id
    * @return array|void
    */
   protected function ShowUploadHist($upload_pk, $Uploadtree_pk, $Uri, $filter, $uploadtree_tablename, $Agent_pk)
   {
-    list($ChildCount, $VF) = $this->getFileListing($Uploadtree_pk, $Uri, $uploadtree_tablename, $Agent_pk, $upload_pk);
+    $Agent_pks = implode("," , $Agent_pk);
+    list($ChildCount, $VF) = $this->getFileListing($Uploadtree_pk, $Uri, $uploadtree_tablename, $Agent_pks, $upload_pk);
     $this->vars['childcount'] = $ChildCount;
     $this->vars['fileListing'] = $VF;
 
@@ -171,7 +181,7 @@ abstract class HistogramBase extends FO_Plugin
       $ModLicView = plugin_find($this->viewName);
       return $ModLicView->execute();
     }
-    return $this->fillTables($upload_pk, $Uploadtree_pk, $filter, $Agent_pk, $VF);
+    return $this->fillTables($upload_pk, $Uploadtree_pk, $filter, $Agent_pks, $VF);
   }
 
   /**
@@ -218,14 +228,19 @@ abstract class HistogramBase extends FO_Plugin
 
     /* advanced interface allowing user to select dataset (agent version) */
     $dataset = $this->agentName."_dataset";
-    $arstable = $this->agentName."_ars";
+    $arsCopyrighttable = $this->agentName."_ars";
     /* get proper agent_id */
-    // $agentId = GetParm("agent", PARM_INTEGER);
-    if (empty($agentId)) {
-      $agentId = LatestAgentpk($uploadId, $arstable);
+
+    $agentId[] = LatestAgentpk($uploadId, $arsCopyrighttable);
+    if ($this->agentName == "copyright") {
+      $arsResotable = "reso_ars";
+      // $agentId[] = LatestAgentpk($uploadId, $arsResotable);
+      if (LatestAgentpk($uploadId, $arsResotable) != 0) {
+        $agentId[] = LatestAgentpk($uploadId, $arsResotable);
+      }
     }
 
-    if ($agentId == 0) {
+    if (empty($agentId) || $agentId[0] == 0) {
       /* schedule copyright */
       $OutBuf .= ActiveHTTPscript("Schedule");
       $OutBuf .= "<script language='javascript'>\n";
@@ -290,7 +305,7 @@ abstract class HistogramBase extends FO_Plugin
    * @param int    $Uploadtree_pk        Uploadtree id
    * @param string $Uri                  URI
    * @param string $uploadtree_tablename Uploadtree table name
-   * @param int    $Agent_pk             Agent id
+   * @param string $Agent_pk             Agent id
    * @param int    $upload_pk            Upload id
    * @return array
    */

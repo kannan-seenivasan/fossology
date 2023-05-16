@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-SPDX-FileCopyrightText: © 2014-2015, 2021 Siemens AG
+SPDX-FileCopyrightText: © 2014-2015, 2021-2022 Siemens AG
 
 SPDX-License-Identifier: FSFAP
 -->
@@ -12,7 +12,7 @@ SPDX-License-Identifier: FSFAP
 
     <parameters>
         <parameter key="twig.environment.config" type="collection">
-            {$TWIG_CACHE}
+            <parameter key="cache" type="string">@FO_TWIG_CACHE@</parameter>
             <parameter key="autoescape" type="constant">false</parameter>
         </parameter>
         <parameter key="twig.loader.source_path" type="string">%application_root%/lib/php/UI/template</parameter>
@@ -65,6 +65,9 @@ SPDX-License-Identifier: FSFAP
         <service id="dao.license.stdc" class="Fossology\Lib\Dao\LicenseStdCommentDao" public="true">
             <argument type="service" id="db.manager"/>
         </service>
+        <service id="dao.license.acknowledgement" class="Fossology\Lib\Dao\LicenseAcknowledgementDao" public="true">
+            <argument type="service" id="db.manager"/>
+        </service>
         <service id="dao.clearing" class="Fossology\Lib\Dao\ClearingDao" public="true">
             <argument type="service" id="db.manager"/>
             <argument type="service" id="dao.upload"/>
@@ -102,6 +105,13 @@ SPDX-License-Identifier: FSFAP
             <argument type="service" id="dao.upload"/>
         </service>
         <service id="dao.pfile" class="Fossology\Lib\Dao\PfileDao" public="true">
+            <argument type="service" id="db.manager"/>
+            <argument type="service" id="logger"/>
+        </service>
+        <service id="dao.searchhelperdao" class="Fossology\Lib\Dao\SearchHelperDao" public="true">
+            <argument type="service" id="db.manager"/>
+        </service>
+        <service id="dao.alldecisions" class="Fossology\Lib\Dao\AllDecisionsDao" public="true">
             <argument type="service" id="db.manager"/>
             <argument type="service" id="logger"/>
         </service>
@@ -151,6 +161,14 @@ SPDX-License-Identifier: FSFAP
         <service id="businessrules.obligationmap"
                  class="Fossology\Lib\BusinessRules\ObligationMap" public="true">
             <argument type="service" id="db.manager"/>
+        </service>
+
+        <service id="businessrules.detectlicensesfolder"
+                 class="Fossology\Lib\BusinessRules\DetectLicensesFolder" public="true">
+        </service>
+
+        <service id="businessrules.reusereportprocessor"
+                 class="Fossology\Lib\BusinessRules\ReuseReportProcessor" public="true">
         </service>
 
         <service id="app.license_csv_import" class="Fossology\Lib\Application\LicenseCsvImport" public="true">

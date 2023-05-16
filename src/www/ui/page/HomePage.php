@@ -7,19 +7,15 @@
 
 namespace Fossology\UI\Page;
 
-use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
 use Fossology\Lib\Plugin\DefaultPlugin;
 use Fossology\UI\Api\Helper\AuthHelper;
+use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
+use League\OAuth2\Client\Provider\GenericProvider;
+use League\OAuth2\Client\Token\AccessToken;
+use League\OAuth2\Client\Token\AccessTokenInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use League\OAuth2\Client\Provider\GenericProvider;
-use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
-use League\OAuth2\Client\Token\AccessToken;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Psr7;
-use League\OAuth2\Client\Token\AccessTokenInterface;
 
 /**
  * @brief about page on UI
@@ -135,7 +131,7 @@ class HomePage extends DefaultPlugin
       "urlAuthorize"            => $SysConf['SYSCONFIG']['OidcAuthorizeURL'],
       "urlAccessToken"          => $SysConf['SYSCONFIG']['OidcAccessTokenURL'],
       "urlResourceOwnerDetails" => $SysConf['SYSCONFIG']['OidcResourceURL'],
-      "responseResourceOwnerId" => "email",
+      "responseResourceOwnerId" => $SysConf['SYSCONFIG']['OidcResourceOwnerId'],
       "proxy"                   => $proxy
     ]);
     $accessToken = $provider->getAccessToken('authorization_code',
@@ -163,11 +159,24 @@ class HomePage extends DefaultPlugin
      */
     $authHelper = $this->container->get('helper.authHelper');
     $jwks = $authHelper::loadJwks();
-    $jwtToken = $accessToken->getToken();
-    $jwtTokenDecoded = JWT::decode(
-      $jwtToken,
-      JWK::parseKeySet($jwks)
-    );
+    $jwtToken = null;
+    if ($SysConf['SYSCONFIG']['OidcTokenType'] === "A") {
+      $jwtToken = $accessToken->getToken();
+    } elseif ($SysConf['SYSCONFIG']['OidcTokenType'] === "I") {
+      $jwtToken = $accessToken->getValues()['id_token'];
+    }
+    if (empty($jwtToken)) {
+      throw new \UnexpectedValueException("Unable to get identity from OIDC token. " .
+        "Please check 'Token to use from provider' field in config.");
+    }
+    try {
+      $jwtTokenDecoded = JWT::decode(
+        $jwtToken,
+        $jwks
+      );
+    } catch (\Exception $e) {
+      throw new \UnexpectedValueException("JWKS: " . $e->getMessage());
+    }
     if (property_exists($jwtTokenDecoded, 'iss') &&
         $jwtTokenDecoded->{'iss'} == $SysConf['SYSCONFIG']['OidcIssuer']) {
       return true;

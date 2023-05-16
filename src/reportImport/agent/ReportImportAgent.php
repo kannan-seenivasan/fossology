@@ -8,19 +8,18 @@ namespace Fossology\ReportImport;
 
 use Fossology\Lib\Agent\Agent;
 use Fossology\Lib\Dao\ClearingDao;
+use Fossology\Lib\Dao\CopyrightDao;
 use Fossology\Lib\Dao\LicenseDao;
-use Fossology\Lib\Dao\UserDao;
 use Fossology\Lib\Dao\UploadDao;
-use Fossology\Lib\Dao\UploadPermissionDao;
+use Fossology\Lib\Dao\UserDao;
 use Fossology\Lib\Data\Tree\ItemTreeBounds;
 use Fossology\Lib\Db\DbManager;
+
 require_once 'SpdxTwoImportSource.php';
 require_once 'XmlImportSource.php';
 require_once 'ReportImportSink.php';
 require_once 'ReportImportHelper.php';
 require_once 'ReportImportConfiguration.php';
-
-use EasyRdf\Graph;
 
 require_once 'version.php';
 require_once 'services.php';
@@ -34,8 +33,6 @@ class ReportImportAgent extends Agent
   private $uploadDao;
   /** @var UserDao */
   private $userDao;
-  /** @var UploadPermissionDao */
-  private $permissionDao;
   /** @var DbManager */
   protected $dbManager;
   /** @var LicenseDao */
@@ -51,7 +48,6 @@ class ReportImportAgent extends Agent
   {
     parent::__construct(AGENT_REPORTIMPORT_NAME, AGENT_REPORTIMPORT_VERSION, AGENT_REPORTIMPORT_REV);
     $this->uploadDao = $this->container->get('dao.upload');
-    $this->permissionDao = $this->container->get('dao.upload.permission');
     $this->dbManager = $this->container->get('db.manager');
     $this->userDao = $this->container->get('dao.user');
     $this->licenseDao = $this->container->get('dao.license');
@@ -114,9 +110,6 @@ class ReportImportAgent extends Agent
     $this->heartbeat(0);
 
     self::preWorkOnArgsFlp($this->args, self::REPORT_KEY);
-    if (!$this->permissionDao->isEditable($uploadId, $this->groupId)) {
-      return false;
-    }
 
     $reportPre = array_key_exists(self::REPORT_KEY,$this->args) ? $this->args[self::REPORT_KEY] : "";
     global $SysConf;
@@ -227,7 +220,7 @@ class ReportImportAgent extends Agent
 
   /**
    * @param string $reportFilename
-   * @return SpdxTwoImportSource
+   * @return SpdxTwoImportSource|XmlImportSource
    * @throws \Exception
    */
   private function getImportSource($reportFilename)
@@ -257,14 +250,14 @@ class ReportImportAgent extends Agent
 
   public function walkAllFiles($reportFilename, $upload_pk, $configuration)
   {
-    /** @var ReportImportSource */
+    /** @var ImportSource $source */
     $source = $this->getImportSource($reportFilename);
     if($source === NULL)
     {
       return;
     }
 
-    /** @var ReportImportSink */
+    /** @var ReportImportSink $sink */
     $sink = new ReportImportSink($this->agent_pk, $this->userDao, $this->licenseDao, $this->clearingDao, $this->copyrightDao,
                                  $this->dbManager, $this->groupId, $this->userId, $this->jobId, $configuration);
 

@@ -14,21 +14,19 @@ namespace Fossology\UI\Api\Helper;
 require_once dirname(dirname(dirname(dirname(__DIR__)))) .
   "/lib/php/common-db.php";
 
+use Fossology\Lib\Auth\Auth;
+use Fossology\Lib\Dao\FolderDao;
+use Fossology\Lib\Data\Folder\Folder;
+use Fossology\Lib\Db\DbManager;
 use Fossology\Lib\Db\ModernDbManager;
 use Fossology\Lib\Exceptions\DuplicateTokenKeyException;
 use Fossology\Lib\Exceptions\DuplicateTokenNameException;
+use Fossology\Lib\Proxy\LicenseViewProxy;
+use Fossology\Lib\Proxy\UploadBrowseProxy;
 use Fossology\UI\Api\Models\Hash;
-use Fossology\UI\Api\Models\Info;
-use Fossology\UI\Api\Models\InfoType;
 use Fossology\UI\Api\Models\Job;
 use Fossology\UI\Api\Models\Upload;
 use Fossology\UI\Api\Models\User;
-use Fossology\Lib\Dao\FolderDao;
-use Fossology\Lib\Db\DbManager;
-use Fossology\Lib\Auth\Auth;
-use Fossology\Lib\Proxy\UploadBrowseProxy;
-use Fossology\Lib\Data\Folder\Folder;
-use Fossology\Lib\Proxy\LicenseViewProxy;
 
 /**
  * @class DbHelper
@@ -91,15 +89,15 @@ class DbHelper
     $uploadProxy = new UploadBrowseProxy($groupId, 0, $this->dbManager);
     $folderId = $options["folderId"];
     if ($folderId === null) {
-      $user = $this->getUsers($userId);
-      $folderId = $user[0]['rootFolderId'];
+      $users = $this->getUsers($userId);
+      $folderId = $users[0]->getRootFolderId();
     }
     $folders = [$folderId];
 
     if ($uploadId !== null) {
       $recursive = true;
-      $user = $this->getUsers($userId);
-      $folderId = $user[0]['rootFolderId'];
+      $users = $this->getUsers($userId);
+      $folderId = $users[0]->getRootFolderId();
       $folders = [$folderId];
     }
 
@@ -199,8 +197,8 @@ FROM $partialQuery $where ORDER BY upload_pk ASC LIMIT $limit OFFSET $" .
   public function getFilenameFromUploadTree($uploadTreePk)
   {
     return $this->dbManager->getSingleRow(
-      'SELECT DISTINCT ufile_name FROM uploadtree
-WHERE uploadtree_pk=' . pg_escape_string($uploadTreePk))["ufile_name"];
+      "SELECT DISTINCT ufile_name FROM uploadtree
+WHERE uploadtree_pk=$1", [$uploadTreePk])["ufile_name"];
   }
 
   /**
@@ -234,7 +232,7 @@ FROM $tableName WHERE $idRowName = $1", [$id],
    *
    * @param integer $id User id of the required user, or NULL to fetch all
    *        users.
-   * @return User[][] Users as an associative array
+   * @return User[] Users as an associative array
    */
   public function getUsers($id = null)
   {
@@ -250,10 +248,9 @@ FROM $tableName WHERE $idRowName = $1", [$id],
     }
     $users = [];
     if ($id === null) {
-      $result = $result = $this->dbManager->getRows($usersSQL, [], $statement);
+      $result = $this->dbManager->getRows($usersSQL, [], $statement);
     } else {
-      $result = $result = $this->dbManager->getRows($usersSQL, [$id],
-        $statement);
+      $result = $this->dbManager->getRows($usersSQL, [$id], $statement);
     }
     $currentUser = Auth::getUserId();
     $userIsAdmin = Auth::isAdmin();
@@ -268,7 +265,7 @@ FROM $tableName WHERE $idRowName = $1", [$id],
         $user = new User($row["user_pk"], $row["user_name"], $row["user_desc"],
           null, null, null, null, null, null);
       }
-      $users[] = $user->getArray();
+      $users[] = $user;
     }
 
     return $users;

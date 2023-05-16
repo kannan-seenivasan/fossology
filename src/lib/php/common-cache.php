@@ -42,7 +42,7 @@ function ReportCacheGet($CacheKey)
   global $UserCacheStat;
 
   /* Purge old entries ~ 1/500 of the times this fcn is called */
-  if (rand(1, 500) == 1) {
+  if (random_int(1, 500) == 1) {
     ReportCachePurgeByDate(" now() - interval '365 days'");
   }
 
@@ -75,6 +75,9 @@ function ReportCacheGet($CacheKey)
   $result = pg_query($PG_CONN, $sql);
   DBCheckResult($result, $sql, __FILE__, __LINE__);
   $row = pg_fetch_assoc($result);
+  if ($row == false) {
+    return;
+  }
   $cashedvalue = $row['report_cache_value'];
   pg_free_result($result);
   return $cashedvalue;

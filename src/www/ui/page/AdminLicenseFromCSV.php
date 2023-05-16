@@ -8,12 +8,12 @@
 
 namespace Fossology\UI\Page;
 
+use Fossology\Lib\Application\LicenseCsvImport;
 use Fossology\Lib\Auth\Auth;
 use Fossology\Lib\Plugin\DefaultPlugin;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Fossology\Lib\Application\LicenseCsvImport;
 
 /**
  * \brief Upload a file from the users computer using the UI.
@@ -22,6 +22,7 @@ class AdminLicenseFromCSV extends DefaultPlugin
 {
   const NAME = "admin_license_from_csv";
   const KEY_UPLOAD_MAX_FILESIZE = 'upload_max_filesize';
+  const FILE_INPUT_NAME = 'file_input';
 
   function __construct()
   {
@@ -42,11 +43,11 @@ class AdminLicenseFromCSV extends DefaultPlugin
     $vars = array();
 
     if ($request->isMethod('POST')) {
-      $uploadFile = $request->files->get('file_input');
+      $uploadFile = $request->files->get(self::FILE_INPUT_NAME);
       $delimiter = $request->get('delimiter') ?: ',';
       $enclosure = $request->get('enclosure') ?: '"';
       $vars['message'] = $this->handleFileUpload($uploadFile, $delimiter,
-        $enclosure);
+        $enclosure)[1];
     }
 
     $vars[self::KEY_UPLOAD_MAX_FILESIZE] = ini_get(self::KEY_UPLOAD_MAX_FILESIZE);
@@ -55,11 +56,12 @@ class AdminLicenseFromCSV extends DefaultPlugin
     return $this->render("admin_license_from_csv.html.twig", $this->mergeWithDefault($vars));
   }
 
+
   /**
    * @param UploadedFile $uploadedFile
-   * @return null|string
+   * @return array
    */
-  protected function handleFileUpload($uploadedFile,$delimiter=',',$enclosure='"')
+  public function handleFileUpload($uploadedFile,$delimiter=',',$enclosure='"')
   {
     $errMsg = '';
     if (! ($uploadedFile instanceof UploadedFile)) {
@@ -75,13 +77,22 @@ class AdminLicenseFromCSV extends DefaultPlugin
         $uploadedFile->getClientOriginalName();
     }
     if (! empty($errMsg)) {
-      return $errMsg;
+      return array(false, $errMsg,400);
     }
-    /** @var LicenseCsvImport */
+    /** @var LicenseCsvImport $licenseCsvImport */
     $licenseCsvImport = $this->getObject('app.license_csv_import');
     $licenseCsvImport->setDelimiter($delimiter);
     $licenseCsvImport->setEnclosure($enclosure);
-    return $licenseCsvImport->handleFile($uploadedFile->getRealPath());
+
+    return array(true,$licenseCsvImport->handleFile($uploadedFile->getRealPath()),200);
+  }
+
+  /**
+   * @return string
+   */
+  public function getFileInputName()
+  {
+    return $this::FILE_INPUT_NAME;
   }
 }
 

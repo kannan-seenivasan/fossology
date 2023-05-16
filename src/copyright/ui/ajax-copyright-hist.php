@@ -1,7 +1,7 @@
 <?php
 /*
- SPDX-FileCopyrightText: © 2014-2019 Siemens AG
- Author: Daniele Fognini, Johannes Najjar, Steffen Weber
+ SPDX-FileCopyrightText: © 2014-2019, 2022, Siemens AG
+ Author: Daniele Fognini, Johannes Najjar, Steffen Weber, Shaheem Azmal M MD
 
  SPDX-License-Identifier: GPL-2.0-only
 */
@@ -193,7 +193,7 @@ class CopyrightHistogramProcessPost extends FO_Plugin
    * @brief Get the copyright data and fill in expected format
    * @param int     $upload    Upload id to get results from
    * @param int     $item      Upload tree id of the item
-   * @param int     $agent_pk  Id of the agent who loaded the results
+   * @param string  $agent_pk  Id of the agent who loaded the results
    * @param string  $type      Type of the statement (statement, url, email, author or ecc)
    * @param string  $listPage  Page slug to use
    * @param string  $filter    Filter data from query
@@ -220,7 +220,7 @@ class CopyrightHistogramProcessPost extends FO_Plugin
    * @param int     $upload_pk           Upload id to get results from
    * @param int     $item                Upload tree id of the item
    * @param string  $uploadTreeTableName Upload tree table to use
-   * @param int     $agentId             Id of the agent who loaded the results
+   * @param string  $agentId             Id of the agent who loaded the results
    * @param string  $type                Type of the statement (statement, url, email, author or ecc)
    * @param string  $filter              Filter data from query
    * @param boolean $activated           True to get activated copyrights, else false
@@ -256,7 +256,7 @@ class CopyrightHistogramProcessPost extends FO_Plugin
     } else {
       // No filter, nothing to do
     }
-    $params = array($left, $right, $type, $agentId, $upload_pk);
+    $params = array($left, $right, $type, "{" . $agentId . "}", $upload_pk);
 
     $filterParms = $params;
     $searchFilter = $this->addSearchFilter($filterParms);
@@ -273,7 +273,7 @@ class CopyrightHistogramProcessPost extends FO_Plugin
         "WHERE cp.content!='' " .
         "AND ( UT.lft  BETWEEN  $1 AND  $2 ) " .
         "AND cp.type = $3 " .
-        "AND cp.agent_fk= $4 " .
+        "AND cp.agent_fk = ANY($4::int[]) " .
         "AND ($activatedClause)" .
         $sql_upload;
     $grouping = " GROUP BY mcontent ";
@@ -325,6 +325,9 @@ count(*) AS copyright_count " .
   private function getTableName($type)
   {
     switch ($type) {
+      case "ipra" :
+        $tableName = "ipra";
+        break;
       case "ecc" :
         $tableName = "ecc";
         break;
@@ -372,10 +375,14 @@ count(*) AS copyright_count " .
   private function addSearchFilter(&$filterParams)
   {
     $searchPattern = GetParm('sSearch', PARM_STRING);
+    $isInverseSearch = GetParm('isInverse', PARM_STRING);
     if (empty($searchPattern)) {
       return '';
     }
     $filterParams[] = "%$searchPattern%";
+    if ($isInverseSearch == 'true') {
+      return 'WHERE mcontent not ilike $'.count($filterParams).' ';
+    }
     return 'WHERE mcontent ilike $'.count($filterParams).' ';
   }
 
@@ -415,7 +422,7 @@ count(*) AS copyright_count " .
    * @param array   $row          Result row from database
    * @param int     $uploadTreeId Upload tree id of the item
    * @param int     $upload       Upload id
-   * @param int     $agentId      Agent id
+   * @param string  $agentId      Agent id
    * @param string  $type         Type of content
    * @param string  $listPage     Page slug
    * @param string  $filter       Filter for query
@@ -426,7 +433,7 @@ count(*) AS copyright_count " .
   private function fillTableRow($row, $uploadTreeId, $upload, $agentId, $type,$listPage, $filter = "", $activated = true, $rw = true)
   {
     $hash = $row['hash'];
-    $output = array('DT_RowId' => "$upload,$uploadTreeId,$hash,$type" );
+    $output = array('DT_RowId' => "$upload,$uploadTreeId,$hash,$type", "DT_RowClass" => "row$hash");
 
     $link = "<a href='";
     $link .= Traceback_uri();
